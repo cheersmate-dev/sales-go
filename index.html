@@ -242,6 +242,9 @@ table.t td.num { font-family: var(--font-num); }
 .st-wait { color: var(--stop); font-weight: 700; }
 
 /* ---- 資料 ---- */
+.paygrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.paybtn { font: inherit; font-weight: 700; font-size: 14px; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--head); cursor: pointer; }
+.paybtn:active { background: var(--accent); color: #fff; }
 .lk { display: block; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
 .lk b { color: var(--head); font-size: 15px; }
 .lk span { display: block; font-size: 12.5px; color: var(--sub); margin-top: 2px; }
@@ -957,8 +960,18 @@ function adminHtml() {
 // ---- 資料 ----
 let FAQ_Q = '';
 function renderDocs() {
-  const links = D.links || [], faq = D.faq || [];
-  let h = '<div class="sec-h" style="margin-top:4px"><h2>リンク</h2></div>' + (links.length ? links.map(l =>
+  const all = D.links || [], faq = D.faq || [];
+  const pay = all.filter(l => /^pay:/.test(l.note || '')), links = all.filter(l => !/^pay:/.test(l.note || ''));
+  let h = '';
+  if (pay.length) {
+    h += '<div class="sec-h" style="margin-top:4px"><h2>決済リンク</h2><span class="hint">押すとURLがコピーされます</span></div>';
+    [['pay:単発', '単発決済'], ['pay:継続', '継続決済（毎月5日に決済）']].forEach(([k, label]) => {
+      const xs = pay.filter(l => (l.note || '').indexOf(k) === 0); if (!xs.length) return;
+      h += '<div class="note" style="margin:6px 0 4px"><b>' + esc(label) + '</b></div><div class="paygrid">' +
+        xs.map(l => '<button type="button" class="paybtn" data-pay="' + esc(safeUrl(l.url)) + '" data-payt="' + esc(label + ' ' + l.title) + '">' + esc(l.title) + '</button>').join('') + '</div>';
+    });
+  }
+  h += '<div class="sec-h" style="margin-top:4px"><h2>リンク</h2></div>' + (links.length ? links.map(l =>
     '<a class="lk" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(l.title) + '</b>' + (l.note ? '<span>' + esc(l.note) + '</span>' : '') + '</a>').join('') : '<div class="empty">まだありません</div>');
   h += '<div class="sec-h"><h2>よくある質問</h2><span class="hint">' + faq.length + '件</span></div><input type="search" id="faqQ" placeholder="ことばで探す（例：分割）" value="' + esc(FAQ_Q) + '">';
   h += '<div id="faqList">' + faqHtml() + '</div>';
@@ -968,6 +981,14 @@ function renderDocs() {
 function faqHtml() {
   const q = FAQ_Q.trim(), list = (D.faq || []).filter(x => !q || (x.q + x.a + (x.tag || '')).indexOf(q) >= 0);
   return list.length ? list.map(x => '<details class="faq"><summary>' + esc(x.q) + '</summary><div class="a">' + esc(x.a) + '<div class="disc">' + DISCLAIMER + '</div></div></details>').join('') : '<div class="empty">見つかりませんでした</div>';
+}
+async function copyPay(url, label) {
+  try { await navigator.clipboard.writeText(url); toast(label + 'のリンクをコピーしました'); }
+  catch (e) {
+    openSheet('<div class="sh-top"><h3>' + esc(label) + '</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+      '<div class="note">自動でコピーできませんでした。下のURLを長押ししてコピーしてください。</div><input type="text" id="payUrl" readonly value="' + esc(url) + '">');
+    const i = $('#payUrl'); if (i) { i.focus(); i.select(); }
+  }
 }
 function safeUrl(u) { return /^https?:\/\//i.test(String(u || '')) ? u : '#'; }
 
@@ -1067,6 +1088,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repBack')) { REP = null; renderReport(); return; }
   if (t.closest('#repNext')) { confirmReport(); return; }
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
   const stb = t.closest('[data-st]'); if (stb) { openStatus(+stb.dataset.st); return; }
   const stv = t.closest('[data-stv]'); if (stv && ST) { ST.res = stv.dataset.stv; document.querySelectorAll('[data-stv]').forEach(b => b.classList.toggle('second', b !== stv)); $('#stYes').disabled = false; return; }
   if (t.closest('#stYes')) { sendStatus(); return; }
