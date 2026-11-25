@@ -512,7 +512,7 @@ function renderToday() {
   const mRows = rows.filter(r => String(r.start).slice(0, 10) === tmr);
   const need = rows.filter(r => r.report === 'needed').sort((a, b) => String(b.start).localeCompare(String(a.start)));
   const todo = (D.todo || []).filter(t => !FM || !t.applicant_id || (meetingById(t.applicant_id) || {}).member === FM);
-  const name = (D.user && D.user.name) || '';
+  const name = D.view || (D.user && D.user.name) || '';   // 管理者が担当者の画面を見ているときはその人の名前
   let h = '<div class="hero"><h2>' + greet() + '、' + esc(name) + 'さん</h2><div class="d">' + esc(md(D.today)) + '</div>' +
     '<div class="nums"><div><small>今日の面談</small><b>' + tRows.length + '</b><span>件</span></div><div><small>明日の面談</small><b>' + mRows.length + '</b><span>件</span></div>' +
     '<div><small>報告がまだ</small><b>' + need.length + '</b><span>件</span></div></div></div>';
