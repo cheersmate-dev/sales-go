@@ -95,6 +95,12 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px calc(150px + env(saf
 .pad { padding: 12px 14px; }
 .empty { color: var(--sub); text-align: center; padding: 22px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
 .note { font-size: 12px; color: var(--sub); margin-top: 6px; }
+details.plan { margin: 0 0 10px; border: 1px solid var(--line, #dfe5f0); border-radius: 10px; background: var(--card, #fff); }
+details.plan > summary { cursor: pointer; padding: 10px 12px; font-weight: 800; color: var(--head); }
+details.plan .plan-b { padding: 0 12px 12px; font-size: 13px; line-height: 1.7; }
+details.plan h4 { margin: 12px 0 4px; font-size: 14px; color: var(--head); }
+details.plan ul, details.plan ol { margin: 4px 0; padding-left: 1.3em; }
+details.plan p { margin: 4px 0; }
 .box { border-radius: 10px; padding: 10px 12px; font-size: 13px; }
 .box.info { background: var(--chip); color: var(--ink); }
 .box.warn { background: var(--badbg); color: var(--bad); }
@@ -559,6 +565,26 @@ function histRow(q) {
   return '<div class="card hist' + (ng ? ' ng' : '') + '"><div class="tp"><b>' + esc(q.name || '') + '</b><span class="num">' + esc(mdt(q.created_at)) + '</span></div>' +
     '<div class="note" style="margin:2px 0 0">' + esc(what) + '・' + esc(st) + (q.result_title ? '・' + esc(q.result_title) : '') + '</div></div>';
 }
+// 作戦会議（2026-11-25）：前の面談の文字起こしから Claude が作ったメモ。見出し・箇条書き・太字だけ読む
+function planMd(t) {
+  let h = '', list = '';
+  const close = () => { if (list) { h += '</' + list + '>'; list = ''; } };
+  String(t || '').split('\n').forEach(line => {
+    const s = line.trim(); if (!s) return;
+    const inl = x => esc(x).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    let m;
+    if ((m = s.match(/^#{1,4}\s+(.*)$/))) { close(); h += '<h4>' + inl(m[1]) + '</h4>'; }
+    else if ((m = s.match(/^[-*・]\s+(.*)$/))) { if (list !== 'ul') { close(); h += '<ul>'; list = 'ul'; } h += '<li>' + inl(m[1]) + '</li>'; }
+    else if ((m = s.match(/^\d+[.)]\s+(.*)$/))) { if (list !== 'ol') { close(); h += '<ol>'; list = 'ol'; } h += '<li>' + inl(m[1]) + '</li>'; }
+    else { close(); h += '<p>' + inl(s) + '</p>'; }
+  });
+  close(); return h;
+}
+function planHtml(r) {
+  return '<details class="plan"><summary>🗒 作戦会議（次の面談の前に）</summary><div class="plan-b">' + planMd(r.plan) +
+    '<div class="note">' + (r.plan_at ? esc(r.plan_at) + ' に作成・' : '') + 'Claude が文字起こしから書いた下書きです。決めつけず、お客様の言葉で確かめてください。' +
+    (r.plan_url ? ' <a href="' + esc(r.plan_url) + '" target="_blank" rel="noopener noreferrer">Notion で開く</a>' : '') + '</div></div></details>';
+}
 function tabiLocked(r) { return r.project === '旅キャリ' && !(D.features && D.features.op_tabi && r.can_operate === '1'); }
 function card(r) {
   const id = r.applicant_id, w = WATCH[id], busy = !!r.busy || (w && w.cls === 'wait');
@@ -569,9 +595,11 @@ function card(r) {
   if (r.report === 'needed') b += '<span class="badge warn">報告がまだです</span>';
   if (r.report === 'sending') b += '<span class="badge">報告を処理中</span>';
   if (r.report === 'done') b += '<span class="badge on">報告済み' + (r.report_summary ? '：' + esc(r.report_summary) : '') + '</span>';
+  if (r.plan) b += '<span class="badge on">🗒 作戦会議あり</span>';
   let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
     '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div></div><div class="actions">';
   const dis = busy ? ' disabled' : '';
+  if (r.plan) h += planHtml(r);
   if (r.project === '旅キャリ') {
     h += '<div class="note" style="margin:0 0 10px">' + (r.insta ? 'インスタ @' + esc(instaKey(r.insta)) + '・' : '') + 'アポ ' + esc(r.appointer || '不明') +
       (r.kind === 'tabi2' ? '<br>担当は一次面談の担当を出しています（変わっている場合があります）。' : '') + '</div>';
@@ -1192,7 +1220,7 @@ function demoData() {
     row({ applicant_id: 'demo01', name: '佐藤 みゆき', start: at(0, 10), report: 'needed', past: '1' }),
     row(Object.assign({ applicant_id: 'tabi1demo02', name: '高橋 はると', start: at(-1, 20), insta: 'mihon_haru_trip', appointer: '見本アポ ゆい', report: 'needed', past: '1' }, tabi1)),
     row({ applicant_id: 'demo03', name: '田中 けんた', start: at(0, 20), reminder_text: '配信中（前日21:15・当日7:30・30分前）' }),
-    row(Object.assign({ applicant_id: 'tabi2demo04', name: 'mihon_sora_trip', start: at(1, 21), insta: 'mihon_sora_trip', appointer: '見本アポ りな' }, tabi2)),
+    row(Object.assign({ applicant_id: 'tabi2demo04', name: 'mihon_sora_trip', start: at(1, 21), insta: 'mihon_sora_trip', appointer: '見本アポ りな', plan_at: '2026-11-25 21:00', plan_url: '', plan: '## 1. ひとことで\n見本：海外で働きたい気持ちは強いが、お金の不安で一歩が出ない。\n## 2. お客様の今\n- ワーホリ中・カフェ勤務\n- 帰国時期は未確認\n## 4. 次の面談の進め方\n1. セミナーの感想を聞く\n2. **帰国時期**を確かめる' }, tabi2)),
     row(Object.assign({ applicant_id: 'tabi1demo05', name: '伊藤 あおい', start: at(1, 19), insta: 'mihon_aoi_abroad', appointer: '見本アポ ゆい' }, tabi1)),
     row({ applicant_id: 'ext_demo06', name: '森 りさ', start: at(3, 13), reminder: 'external', reminder_text: '自動（Zoom の案内のみ）', kind: 'external' }),
     row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています' }),
