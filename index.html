@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="セールスGO">
+<meta name="theme-color" content="#031147">
+<title>セールスGO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+<style>
+/* セールスGO：営業担当の1人1ページ（面談・報告・数字と報酬・資料・営業Bot）。
+   色と書体は面談スケジュールと同じ：紺 #031147・黄 #fdc805・白。
+   データの出し入れは受け口（Apps Script）。やり取りの形は「受け口との約束」の文書。合言葉は URL の #k=。
+   公開リポジトリに置くページなので、データ・名簿・営業Q&Aの中身・秘密の値はここに書かない（見本は架空）。 */
+:root {
+  --bg: #f3f6fb; --card: #ffffff; --ink: #101a38; --sub: #5b6886; --line: #dde4f0; --head: #0b1d5c; --soft: #f7f9fd;
+  --accent: #031147; --accent-ink: #ffffff; --ok: #2f7a47; --okbg: #e2f2e6;
+  --stop: #946f00; --stopbg: #fff4c4; --bad: #c2462e; --badbg: #fbe4de; --chip: #e6f0fb;
+  --yellow: #fdc805; --navy: #031147; --hero1: #031147; --hero2: #173c8e; --hero-muted: #b9c6e6; --hero-line: rgba(255,255,255,.25);
+  --font-jp: "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  --font-num: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1122; --card: #121a31; --ink: #e8edf8; --sub: #9aa8c6; --line: #26324f; --head: #c9d6f7; --soft: #18213b;
+    --accent: #fdc805; --accent-ink: #031147; --ok: #8fd19e; --okbg: #173123;
+    --stop: #f5cf3c; --stopbg: #3a3010; --bad: #f39a84; --badbg: #3a1d17; --chip: #16294a;
+    --hero1: #08143a; --hero2: #183a80; --hero-muted: #a9bde3; --hero-line: rgba(255,255,255,.16);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1122; --card: #121a31; --ink: #e8edf8; --sub: #9aa8c6; --line: #26324f; --head: #c9d6f7; --soft: #18213b;
+  --accent: #fdc805; --accent-ink: #031147; --ok: #8fd19e; --okbg: #173123;
+  --stop: #f5cf3c; --stopbg: #3a3010; --bad: #f39a84; --badbg: #3a1d17; --chip: #16294a;
+  --hero1: #08143a; --hero2: #183a80; --hero-muted: #a9bde3; --hero-line: rgba(255,255,255,.16);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-jp); overflow-wrap: anywhere; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ---- 上の帯（紺） ---- */
+header.top { position: sticky; top: 0; z-index: 20; background: linear-gradient(135deg, var(--hero1), var(--hero2)); color: #fff; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; }
+.top-in { max-width: 720px; margin: 0 auto; }
+.brand-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand { font-weight: 900; font-size: 18px; white-space: nowrap; letter-spacing: .02em; }
+.brand b { color: var(--yellow); font-family: var(--font-num); font-weight: 700; margin-left: 1px; }
+.me-pill { margin-left: auto; min-width: 0; font-weight: 700; color: #031147; background: var(--yellow); border-radius: 999px; padding: 2px 10px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reload { flex: none; border: 1px solid var(--hero-line); background: transparent; color: #fff; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
+.meta { color: var(--hero-muted); font-size: 12px; margin-top: 4px; }
+.who { margin-top: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; padding: 6px 10px; background: rgba(253,200,5,.16); color: #fdc805; border: 1px solid rgba(253,200,5,.45); }
+.demo-bar { margin-top: 8px; font-size: 12px; border-radius: 8px; padding: 5px 10px; background: rgba(255,255,255,.12); color: #fff; }
+.demo-bar b { color: var(--yellow); }
+
+main { max-width: 720px; margin: 0 auto; padding: 14px 16px calc(150px + env(safe-area-inset-bottom)); }
+
+/* ---- 下のタブ ---- */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--card); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
+.tabbar-in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.tab { position: relative; border: 0; background: none; border-radius: 12px; padding: 11px 0 10px; font-size: 14px; font-weight: 700; color: var(--sub); }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+:root[data-theme="dark"] .tab[aria-selected="true"] .badge { background: #031147; color: #fdc805; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab[aria-selected="true"] .badge { background: #031147; color: #fdc805; } }
+.tab .badge { position: absolute; top: 1px; right: calc(50% - 26px); min-width: 18px; height: 18px; border-radius: 9px; background: var(--yellow); color: #031147;
+  font: 700 11px/18px var(--font-num); text-align: center; padding: 0 5px; }
+
+/* ---- 営業Bot のボタン（右下・どのタブでも） ---- */
+.fab { position: fixed; z-index: 35; right: max(16px, calc((100vw - 720px) / 2 + 16px)); bottom: calc(76px + env(safe-area-inset-bottom));
+  width: 62px; height: 62px; border-radius: 50%; border: 2px solid var(--yellow); background: var(--navy); color: #fff;
+  display: grid; place-content: center; text-align: center; line-height: 1.15; box-shadow: 0 6px 18px rgba(3,17,71,.32); }
+.fab small { display: block; font-size: 10px; font-weight: 700; color: #dfe7fb; }
+.fab b { display: block; font: 700 17px/1.1 var(--font-num); color: var(--yellow); }
+
+/* ---- 共通の部品 ---- */
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 20px 2px 8px; }
+.sec-h h2 { margin: 0; font-size: 16px; font-weight: 900; color: var(--head); }
+.sec-h .hint { font-size: 12px; color: var(--sub); text-align: right; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(3,17,71,.05); }
+.card.open { border-color: var(--accent); }
+.card.flash { box-shadow: 0 0 0 3px var(--yellow); }
+.pad { padding: 12px 14px; }
+.empty { color: var(--sub); text-align: center; padding: 22px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+.note { font-size: 12px; color: var(--sub); margin-top: 6px; }
+.box { border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.box.info { background: var(--chip); color: var(--ink); }
+.box.warn { background: var(--badbg); color: var(--bad); }
+.box.y { background: var(--stopbg); color: var(--ink); }
+.box.ok { background: var(--okbg); color: var(--ok); }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 1px 7px; line-height: 1.6; vertical-align: 1px; }
+.tag.ad { background: var(--chip); color: var(--head); }
+.tag.tabi { background: var(--stopbg); color: var(--stop); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chips button { white-space: nowrap; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 700; }
+.chips button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chips button .n { margin-left: 6px; font-family: var(--font-num); font-weight: 700; color: var(--stop); }
+.chips button.on .n { color: var(--yellow); }
+:root[data-theme="dark"] .chips button.on .n { color: #031147; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chips button.on .n { color: #031147; } }
+.go { width: 100%; font-size: 15px; font-weight: 700; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+.go.second { background: transparent; color: var(--accent); }
+.go.undo { background: transparent; color: var(--bad); border-color: var(--bad); }
+.go:disabled { opacity: .45; cursor: default; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+input[type=text], input[type=date], input[type=time], input[type=datetime-local], input[type=search], select, textarea {
+  width: 100%; font-size: 16px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); margin-bottom: 8px; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; line-height: 1.6; }
+label.l { display: block; font-size: 13px; color: var(--sub); margin: 6px 0 3px; font-weight: 700; }
+label.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin: 10px 0 4px; }
+label.check input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+.result { border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 13px; white-space: pre-wrap; }
+.result.wait { background: var(--chip); }
+.result.ok { background: var(--okbg); color: var(--ok); }
+.result.ng { background: var(--badbg); color: var(--bad); }
+
+/* ---- 今日 ---- */
+.hero { border-radius: 14px; padding: 16px; color: #fff; background: linear-gradient(135deg, var(--hero1), var(--hero2)); }
+.hero h2 { margin: 0; font-size: 19px; font-weight: 900; }
+.hero .d { font-size: 13px; color: var(--hero-muted); margin-top: 2px; }
+.hero .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.hero .nums div { background: rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+.hero .nums small { display: block; font-size: 12px; color: var(--hero-muted); }
+.hero .nums b { font: 700 24px/1.2 var(--font-num); color: var(--yellow); }
+.hero .nums span { font-size: 12px; color: #dfe7fb; margin-left: 2px; }
+.mc { display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 11px 12px; margin-bottom: 8px; color: var(--ink); }
+.mc .t { font: 700 20px/1.1 var(--font-num); color: var(--head); }
+.mc .t small { display: block; font: 700 11px/1.4 var(--font-jp); color: var(--sub); }
+.mc .nm { font-weight: 900; font-size: 15px; color: var(--head); }
+.mc .sb { font-size: 12.5px; color: var(--sub); margin-top: 1px; }
+.mc .go-r { font-size: 12.5px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.mc.need { border-color: var(--bad); }
+.mc.need .go-r { color: var(--bad); }
+.todo { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--stop); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; width: 100%; text-align: left; color: var(--ink); }
+.todo.warn { border-left-color: var(--bad); }
+.band { display: block; width: 100%; text-align: left; border: 0; border-radius: 14px; padding: 14px 16px; margin-top: 18px; color: #fff; background: linear-gradient(135deg, var(--hero1), var(--hero2)); }
+.band .h { font-size: 13px; color: var(--hero-muted); font-weight: 700; display: flex; justify-content: space-between; }
+.band .g { display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: 6px; margin-top: 6px; }
+.band .g div { font-size: 12px; color: #dfe7fb; }
+.band .g b { display: block; font: 700 22px/1.2 var(--font-num); color: var(--yellow); }
+.band .g b span { font: 700 12px var(--font-jp); color: #dfe7fb; margin-left: 1px; }
+
+/* ---- 面談 ---- */
+.row { padding: 12px 14px; cursor: pointer; }
+.row .tp { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.row .nm { font-weight: 900; font-size: 16px; color: var(--head); }
+.row .when { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; color: var(--head); font-size: 14px; }
+.row .sub { color: var(--sub); font-size: 13px; margin-top: 2px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.badge { font-size: 12px; border-radius: 6px; padding: 2px 8px; background: var(--chip); }
+.badge.on { background: var(--okbg); color: var(--ok); }
+.badge.off { background: var(--stopbg); color: var(--stop); }
+.badge.warn { background: var(--badbg); color: var(--bad); }
+.actions { border-top: 1px solid var(--line); padding: 12px 14px; display: none; }
+.card.open .actions { display: block; }
+.actions h3 { font-size: 13px; margin: 0 0 6px; color: var(--sub); font-weight: 700; }
+.act { margin-bottom: 14px; }
+.act:last-child { margin-bottom: 0; }
+.day-h { font-size: 13px; font-weight: 900; color: var(--sub); margin: 16px 2px 6px; }
+details.more { margin-top: 14px; }
+details.more summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--head); padding: 8px 2px; }
+.hist { padding: 10px 14px; font-size: 13px; }
+.hist .tp { display: flex; justify-content: space-between; gap: 8px; }
+.hist.ng { border-left: 4px solid var(--bad); }
+
+/* ---- 報告 ---- */
+.q { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.q > .qt { font-weight: 900; font-size: 15px; color: var(--head); margin-bottom: 8px; }
+.q > .qt small { font-weight: 500; font-size: 12px; color: var(--sub); margin-left: 6px; }
+.opts { display: grid; gap: 6px; }
+.opts.two { grid-template-columns: 1fr 1fr; }
+.opts.three { grid-template-columns: repeat(3, 1fr); }
+.opt { text-align: left; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-weight: 700; font-size: 14px; line-height: 1.45; min-height: 44px; }
+.opt small { display: block; font-weight: 500; font-size: 12px; color: var(--sub); margin-top: 2px; }
+.opt[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.opt[aria-pressed="true"] small { color: inherit; opacity: .85; }
+.opts.three .opt, .opts.two .opt { text-align: center; }
+.rank { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; border-radius: 12px; padding: 12px 14px; margin-top: 10px; color: #fff; background: linear-gradient(135deg, var(--hero1), var(--hero2)); }
+.rank .L { font: 700 46px/1 var(--font-num); color: var(--yellow); text-align: center; }
+.rank .def { font-size: 14px; font-weight: 700; }
+.rank .def small { display: block; font-size: 12px; font-weight: 500; color: var(--hero-muted); margin-top: 2px; }
+.rank .def b { color: var(--yellow); font-weight: 900; }
+.rank-fix { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--sub); }
+.rank-fix button { width: 42px; height: 38px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font: 700 16px var(--font-num); }
+.rank-fix button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.mt { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.linkbtn { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 13px; padding: 6px 0; white-space: nowrap; }
+:root[data-theme="dark"] .linkbtn { color: var(--yellow); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .linkbtn { color: var(--yellow); } }
+.errs { margin: 0 0 10px; padding-left: 20px; }
+.conf { margin: 4px 0 10px; border-top: 1px solid var(--line); }
+.conf div { display: grid; grid-template-columns: 7.5em 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.conf div span:first-child { color: var(--sub); font-size: 13px; }
+.will { margin: 6px 0 0; padding-left: 20px; font-size: 13.5px; }
+.will li { margin-bottom: 4px; }
+
+/* ---- 数字 ---- */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.tile small { display: block; font-size: 12px; color: var(--sub); font-weight: 700; }
+.tile b { font: 700 26px/1.2 var(--font-num); color: var(--head); }
+.tile span { font-size: 12px; color: var(--sub); margin-left: 2px; }
+.tw { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.t th, table.t td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t td.l, table.t th.l { text-align: left; }
+table.t td.l { white-space: normal; min-width: 4.5em; }
+table.t td small { display: block; font-size: 11.5px; color: var(--sub); }
+table.t th { font-size: 12px; color: var(--sub); font-weight: 700; background: var(--soft); }
+table.t tr:last-child td { border-bottom: 0; }
+table.t td.num { font-family: var(--font-num); }
+.pay { border-radius: 14px; padding: 14px 16px; color: #fff; background: linear-gradient(135deg, var(--hero1), var(--hero2)); }
+.pay .h { font-size: 13px; color: var(--hero-muted); font-weight: 700; }
+.pay .big { font: 700 34px/1.2 var(--font-num); color: var(--yellow); margin-top: 2px; }
+.pay .big span { font: 700 15px var(--font-jp); color: #fff; margin-left: 2px; }
+.pay .sm { font-size: 13px; color: #dfe7fb; margin-top: 2px; }
+.pay .sm b { color: var(--yellow); font-weight: 900; }
+.st-ok { color: var(--ok); font-weight: 700; }
+.rl { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.rl:last-child { border-bottom: 0; }
+.rl-l b { display: block; font-size: 14px; color: var(--head); }
+.rl small { display: block; font-size: 12px; color: var(--sub); }
+.rl-r { text-align: right; flex: none; }
+.rl-r b { font: 700 19px/1.2 var(--font-num); color: var(--head); }
+.rl-r b span { font: 700 12px var(--font-jp); margin-left: 1px; }
+.rl-r small.st-ok { color: var(--ok); } .rl-r small.st-wait { color: var(--stop); }
+.st-wait { color: var(--stop); font-weight: 700; }
+
+/* ---- 資料 ---- */
+.lk { display: block; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.lk b { color: var(--head); font-size: 15px; }
+.lk span { display: block; font-size: 12.5px; color: var(--sub); margin-top: 2px; }
+details.faq { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
+details.faq summary { cursor: pointer; padding: 12px 14px; font-weight: 700; color: var(--head); list-style: none; }
+details.faq summary::-webkit-details-marker { display: none; }
+details.faq[open] summary { border-bottom: 1px solid var(--line); }
+details.faq .a { padding: 10px 14px 12px; font-size: 14px; white-space: pre-wrap; }
+details.faq .a .disc { margin-top: 8px; }
+
+/* ---- 下から出る画面 ---- */
+.scrim { position: fixed; inset: 0; background: rgba(3,10,40,.45); z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--card); color: var(--ink); border-radius: 18px 18px 0 0; padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  max-height: 90dvh; overflow: auto; transform: translateY(105%); visibility: hidden; transition: transform .26s cubic-bezier(.2,.8,.2,1), visibility 0s linear .26s; }
+.sheet.on { transform: none; visibility: visible; transition: transform .26s cubic-bezier(.2,.8,.2,1); }
+.sheet h3 { margin: 0 0 4px; font-size: 17px; font-weight: 900; color: var(--head); }
+.sheet .sh-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.sheet .x { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; flex: none; }
+.sheet ul.items { margin: 6px 0 12px; padding-left: 18px; font-size: 14px; }
+@media (min-width: 760px) {
+  .sheet { left: 50%; right: auto; bottom: auto; top: 50%; width: 560px; border-radius: 18px; transform: translate(-50%, -46%) scale(.98); opacity: 0; pointer-events: none; transition: transform .2s, opacity .2s, visibility 0s linear .2s; max-height: 86vh; }
+  .sheet.on { transform: translate(-50%, -50%); opacity: 1; pointer-events: auto; transition: transform .2s, opacity .2s; }
+}
+
+/* ---- 営業Bot ---- */
+.botwrap { display: flex; flex-direction: column; min-height: 60dvh; }
+.botwrap .intro { font-size: 13px; color: var(--sub); margin-bottom: 8px; }
+.qchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.qchips button { border: 1px solid var(--line); background: var(--soft); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; text-align: left; }
+.chat { flex: 1; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.bub { max-width: 86%; border-radius: 14px; padding: 9px 12px; font-size: 14px; white-space: pre-wrap; }
+.bub.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+.bub.bot { align-self: flex-start; background: var(--soft); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.bub.wait { color: var(--sub); }
+.bub.ng { background: var(--badbg); color: var(--bad); border-color: transparent; }
+.bub .src { display: block; font-size: 12px; color: var(--sub); margin-top: 6px; }
+.disc { font-size: 12px; color: var(--sub); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 8px; white-space: normal; }
+.ask { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; position: sticky; bottom: 0; background: var(--card); padding-top: 6px; }
+.ask textarea { min-height: 44px; height: 46px; margin: 0; }
+.ask button { width: auto; padding: 11px 16px; }
+
+/* ---- お知らせ・入口 ---- */
+.toast { position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; z-index: 80; background: #101a38; color: #fff;
+  border-radius: 12px; padding: 10px 14px; font-size: 14px; width: max-content; max-width: calc(100vw - 32px); transition: all .22s; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+.gate { max-width: 460px; margin: 40px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 20px; text-align: center; }
+.gate h2 { margin: 0 0 6px; font-size: 18px; color: var(--head); }
+.gate p { margin: 0; font-size: 14px; color: var(--sub); }
+.skel { height: 74px; border-radius: 12px; background: linear-gradient(90deg, var(--card) 0%, var(--soft) 50%, var(--card) 100%); background-size: 200% 100%; animation: sk 1.2s linear infinite; margin-bottom: 8px; }
+@keyframes sk { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand-row">
+      <span class="brand">セールス<b>GO</b></span>
+      <span class="me-pill" id="mePill" hidden></span>
+      <button class="reload" id="reload" type="button">更新</button>
+    </div>
+    <div class="meta" id="meta">読み込み中…</div>
+    <div class="who" id="who" hidden></div>
+    <div class="demo-bar" id="demoBar" hidden><b>見本</b>です。名前も数字も架空で、押してもどこにも記録しません。</div>
+  </div>
+</header>
+
+<main>
+  <div id="gate" hidden></div>
+  <section id="v-today"><div class="skel"></div><div class="skel"></div><div class="skel"></div></section>
+  <section id="v-meet" hidden></section>
+  <section id="v-report" hidden></section>
+  <section id="v-num" hidden></section>
+  <section id="v-docs" hidden></section>
+</main>
+
+<button class="fab" id="fab" type="button" aria-label="営業Botを開く"><small>営業</small><b>Bot</b></button>
+
+<nav class="tabbar" aria-label="画面の切り替え">
+  <div class="tabbar-in">
+    <button class="tab" type="button" data-tab="today" aria-selected="true">今日<span class="badge" data-badge="today" hidden></span></button>
+    <button class="tab" type="button" data-tab="meet" aria-selected="false">面談</button>
+    <button class="tab" type="button" data-tab="report" aria-selected="false">報告<span class="badge" data-badge="report" hidden></span></button>
+    <button class="tab" type="button" data-tab="num" aria-selected="false">数字</button>
+    <button class="tab" type="button" data-tab="docs" aria-selected="false">資料</button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+// 受け口（Apps Script のウェブアプリ）の URL。つなぎ込みのときに入れる（「受け口との約束」の文書）。空の間は見本（?demo=1）以外は「準備中」。
+const API = 'https://script.google.com/macros/s/AKfycbyV3LTGfm4GUQIg3ocngJ7SvXdnqpk4_4VtG5A4_613J6Si5zszXif1HVpjvcdnpfAa/exec';
+const DISCLAIMER = '価格・プラン・サポート範囲は営業Q&A正ナレッジが根拠です。値引き・支払条件の個別のご相談は会社へ引き継いでください';
+const POLL_MS = 4000, POLL_MAX = 45;   // 4秒おき・3分まで（受付役は20秒おき）
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// 端末に覚える値は sgo_ で始める（同じサイトに旅キャリGo・Matcha Go! がある）。読めない端末でも動くように try で包む
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem('sgo_' + k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('sgo_' + k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem('sgo_' + k); } catch (e) {} }
+};
+
+// ---- 開き方：#k=<合言葉>（サーバーに送られない部分）／?demo=1 は見本 ----
+const params = new URLSearchParams(location.search);
+const DEMO = params.has('demo');
+const DEMO_ADMIN = DEMO && params.get('admin') === '1';
+if (DEMO && params.get('theme')) document.documentElement.dataset.theme = params.get('theme');
+let KEY = '';
+(() => {
+  const m = location.hash.match(/k=([A-Za-z0-9_-]{16,})/);
+  if (m) { KEY = m[1]; ls.set('key', KEY); }
+  else KEY = ls.get('key', '');
+})();
+
+// ---- 報告の項目（backend/report_model.py・lead_rank.py と同じ。変えるときは両方） ----
+const TABI = {
+  '一次：実施・二次面談決定': { stage: '一次', att: true, sheet: { '一次面談実施': '実施◯', '二次面談希望': '二次希望◯' }, date: true, title: '二次面談決定', sales: true },
+  '一次：実施・二次面談なし': { stage: '一次', att: true, sheet: { '一次面談実施': '実施◯', '二次面談希望': '×' }, title: '一次面談 実施（二次面談なし）' },
+  '一次：不参加': { stage: '一次', att: false, sheet: { '一次面談実施': '×' }, title: '一次面談 不参加' },
+  '二次：実施・成約': { stage: '二次', att: true, sheet: { '二次面談実施': '実施◯' }, title: '二次面談 実施', sales: true, out: '成約' },
+  '二次：実施・検討中': { stage: '二次', att: true, sheet: { '二次面談実施': '実施◯' }, title: '二次面談 実施', sales: true, out: '検討中', reason: true },
+  '二次：実施・未成約': { stage: '二次', att: true, sheet: { '二次面談実施': '実施◯' }, title: '二次面談 実施', sales: true, out: '未成約', reason: true },
+  '二次：不参加': { stage: '二次', att: false, sheet: { '二次面談実施': '×' }, title: '二次面談 不参加', sales: true }
+};
+const AD = {
+  '成約': { att: true }, '検討中': { att: true, reason: true, action: true }, '未成約': { att: true, reason: true },
+  '不参加・キャンセル': { att: false }, 'リスケ': { att: false, next: true }
+};
+const LOST = ['価格', 'タイミング', '必要性が伝わらなかった', '家族と相談', 'ほかと比較', 'その他'];
+const WANTS = [['強い', '今の働き方を変えたい理由と、始めたい時期を、本人が自分の言葉で話した'], ['あと一歩', '理由か時期のどちらかがまだ弱い'],
+  ['いつか', '理由も時期もまだ無い'], ['なんとなく', '情報収集、人に勧められた、何をしたいか決まっていない']];
+const PAYS = [['すぐ払える', '一括でも支払える'], ['分割なら払える', '分割にすれば支払える（借入れは勧めない）'], ['払えない', '支払いの設計をしても難しい']];
+const DEFS = { A: 'やりたい気持ちが強く、支払いもできる（分割を含む）', B: 'やりたい気持ちはあるが、あと一歩。支払いはできる',
+  C: '「いつかやりたい」という憧れの段階。支払いはできる', D: '支払いができない、または目的がはっきりしない（対象外）' };
+function rankOf(w, p) { if (!w || !p) return ''; if (p === '払えない' || w === 'なんとなく') return 'D'; return { '強い': 'A', 'あと一歩': 'B', 'いつか': 'C' }[w] || ''; }
+function instaKey(s) { let t = String(s || '').trim(); const m = t.match(/instagram\.com\/([^/?#\s]+)/i); if (m) t = m[1]; return t.replace(/^@/, '').replace(/\s+/g, '').toLowerCase(); }
+
+// ---- 面談の操作（いまの面談スケジュールと同じ） ----
+const OPS = {
+  reschedule: ['手動で日程変更した', ['いまの日程のリマインドを止めます', '新しい日時でリマインドを組み直します', 'UTAGE の予約そのものは元の日時のまま残ります', '一覧・カレンダー・顧客マスターの日時は自動で直ります', 'お客様へは何も送りません（日時が変わったことは担当から伝えてください）']],
+  hold: ['リマインドだけ止める', ['この方へのリマインドを止めます', '止めた記録を残します（自動の点検でも元に戻りません）', 'お客様へは何も送りません']],
+  resume: ['リマインドを再開する', ['リマインドを再開します', '配信の予定が積まれたかを確かめます', 'お客様へは何も送りません']],
+  revert: ['手動の日程変更を取り消す', ['リマインドを UTAGE の予約の日時に戻します', '手動で変えた記録を消します', 'お客様へは何も送りません']],
+  member: ['担当を変える', []],
+  ext_move: ['登録の日時を変える', ['一覧・顧客マスター・カレンダーの日時を新しい日時に直します', 'Zoom の案内を新しい日時に組み直します', '日時が変わったお知らせは送りません（担当から伝えてください）']],
+  ext_cancel: ['登録を取り消す', ['一覧から外します', 'カレンダーの予定は消さずに【キャンセル】と表示します', 'まだ届いていない自動の案内を止めます', '取り消しのお知らせは送りません（担当から伝えてください）']]
+};
+
+let D = null;                 // 受け口から来たデータ（me）
+let TAB = 'today';
+let FP = '', FM = '';         // 面談の絞り込み：案件・担当（管理者）
+let OPEN = '';                // 開いている面談のカード
+const WATCH = {};             // 面談ID → {cls, text, id}
+let NUM_I = 0;                // 数字：0＝今月・1＝先月
+let NUM_ALL = true;           // 管理者：全員の表を出す
+let REP = null;               // 報告の入力中 {aid, m, f}
+let REP_SENT = null;          // 送った報告の結果 {m, will, w}
+const BOT = { msgs: [], open: false };
+
+// ---- 受け口とのやり取り ----
+async function api(action, body = {}, tries = 1) {
+  if (DEMO) return demoApi(action, body);
+  let res;
+  try { res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ action, key: KEY }, body)), redirect: 'follow' }); }
+  catch (e) { if (tries > 0) { await sleep(1500); return api(action, body, tries - 1); } return { ok: false, error: 'net' }; }
+  let j; try { j = await res.json(); } catch (e) { return { ok: false, error: 'server' }; }
+  if (!j.ok && j.error === 'busy' && tries > 0) { await sleep(3000); return api(action, body, tries - 1); }
+  return j;
+}
+const ERR = {
+  key: 'このURLでは開けません。会社からもらった専用URLで開き直してください。', net: '通信できませんでした。電波のよいところでもう一度。',
+  server: 'うまく処理できませんでした。少し待ってもう一度押してください。', busy: 'いま混み合っています。少し待ってもう一度押してください。',
+  limit: '今日の上限に届きました。続きは明日お願いします。', off: 'この機能は準備中です。', json: 'うまく処理できませんでした。', action: 'うまく処理できませんでした。',
+  state: 'この面談には使えない操作です。画面を更新してください。', input: '入力を確かめてください。'
+};
+const errMsg = j => (j && j.message) || ERR[j && j.error] || ERR.server;
+const cid = p => p + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function poll(id, done, n = 0) {
+  if (n > POLL_MAX) { done({ status: 'timeout' }); return; }
+  setTimeout(async () => {
+    const j = await api('request', { id });
+    const q = j && j.ok ? j.request : null;
+    if (q && q.status !== 'new' && q.status !== 'running') done(q); else poll(id, done, n + 1);
+  }, DEMO ? 900 : POLL_MS);
+}
+const TIMEOUT_TEXT = '3分たっても結果が返ってきません。Mac mini 側が止まっているかもしれません。面談タブの「最近の依頼」で確かめてください。';
+
+// ---- 日時 ----
+const WD = '日月火水木金土';
+const p2 = n => String(n).padStart(2, '0');
+function parse(s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null; }
+function ymd(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+function stamp(d) { return ymd(d) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+function addDays(s, n) { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
+function md(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '月' + d.getDate() + '日（' + WD[d.getDay()] + '）' : ''; }
+function mdt(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）' + d.getHours() + ':' + p2(d.getMinutes()) : ''; }
+function hm(s) { const d = parse(s); if (!d) return ''; if (!d.getHours() && !d.getMinutes()) return '時刻未入力'; return d.getHours() + ':' + p2(d.getMinutes()); }   // 0:00 ちょうどは二次面談フォームの時刻空欄（面談スケジュールと同じ扱い）
+function ymLabel(ym) { const m = String(ym).match(/^(\d{4})-(\d{2})/); return m ? (+m[2]) + '月' : ym; }
+const yen = n => Number(n || 0).toLocaleString('ja-JP');
+function nowD() { return parse(D && D.now) || new Date(); }
+
+// ---- 表示 ----
+function isAdmin() { return !!(D && D.user && D.user.role === 'admin'); }
+function rowsAll() { return (D && D.meetings) || []; }
+function rowsVis() { return rowsAll().filter(r => (!FM || r.member === FM)); }
+function tagOf(r) { return '<span class="tag ' + (r.project === '旅キャリ' ? 'tabi' : 'ad') + '">' + esc(r.project) + '</span>'; }
+function custName(r) { return r.kind === 'tabi2' ? '@' + esc(instaKey(r.insta || r.name)) : esc(r.name) + ' さん'; }
+function meetingById(id) { return rowsAll().find(r => r.applicant_id === id); }
+
+function render() {
+  if (!D) return;
+  const u = D.user || {};
+  $('#mePill').hidden = false; $('#mePill').textContent = (u.name || '') + (DEMO ? '（見本）' : '') + (isAdmin() ? '・管理者' : '');
+  const m = D.meta || {};
+  let t = '一覧の更新 ' + (m.list_updated_at ? mdt(m.list_updated_at) : '未取得');
+  if (m.tabi_updated_at && m.tabi_updated_at !== m.list_updated_at) t += '／旅キャリ ' + mdt(m.tabi_updated_at);
+  if (m.stale) t += '／' + m.stale;
+  $('#meta').textContent = t;
+  $('#who').hidden = !isAdmin();
+  if (isAdmin()) $('#who').textContent = '管理者のリンクです。全員（' + (D.members || []).join('・') + '）の面談と数字が見えます。押した操作は管理者として記録されます。担当者には渡さないでください。';
+  $('#demoBar').hidden = !DEMO;
+  renderToday(); renderMeet(); renderReport(); renderNum(); renderDocs();
+  const need = rowsVis().filter(r => r.report === 'needed').length;
+  const today = rowsVis().filter(r => String(r.start).slice(0, 10) === D.today && r.past !== '1').length;
+  setBadge('report', need); setBadge('today', today);
+}
+function setBadge(k, n) { const b = $('[data-badge="' + k + '"]'); b.hidden = !n; b.textContent = n; }
+
+// ---- 今日 ----
+function greet() { const h = nowD().getHours(); return h < 11 ? 'おはようございます' : h < 18 ? 'こんにちは' : 'おつかれさまです'; }
+function mini(r, need) {
+  const right = need ? '報告する' : (r.report === 'needed' ? '報告する' : '開く');
+  const act = need || r.report === 'needed' ? 'data-go-report="' + esc(r.applicant_id) + '"' : 'data-go-meet="' + esc(r.applicant_id) + '"';
+  return '<button type="button" class="mc' + (need ? ' need' : '') + '" ' + act + '>' +
+    '<span class="t">' + (need ? '<small>' + esc(md(r.start)) + '</small>' : '') + esc(hm(r.start)) + '</span>' +
+    '<span><span class="nm">' + custName(r) + '</span><span class="sb" style="display:block">' + tagOf(r) + ' ' + esc(r.stage) + (isAdmin() ? '・担当 ' + esc(r.member || '未確認') : '') + '</span></span>' +
+    '<span class="go-r">' + right + '</span></button>';
+}
+function monthNow() { return (D.stats && D.stats.months && D.stats.months[0]) || null; }
+function renderToday() {
+  const rows = rowsVis().slice().sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  const tmr = addDays(D.today, 1);
+  const tRows = rows.filter(r => String(r.start).slice(0, 10) === D.today);
+  const mRows = rows.filter(r => String(r.start).slice(0, 10) === tmr);
+  const need = rows.filter(r => r.report === 'needed').sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  const todo = (D.todo || []).filter(t => !FM || !t.applicant_id || (meetingById(t.applicant_id) || {}).member === FM);
+  const name = (D.user && D.user.name) || '';
+  let h = '<div class="hero"><h2>' + greet() + '、' + esc(name) + 'さん</h2><div class="d">' + esc(md(D.today)) + '</div>' +
+    '<div class="nums"><div><small>今日の面談</small><b>' + tRows.length + '</b><span>件</span></div><div><small>明日の面談</small><b>' + mRows.length + '</b><span>件</span></div>' +
+    '<div><small>報告がまだ</small><b>' + need.length + '</b><span>件</span></div></div></div>';
+  h += '<div class="sec-h"><h2>今日の面談</h2><span class="hint">押すと面談の操作へ</span></div>' +
+    (tRows.length ? tRows.map(r => mini(r)).join('') : '<div class="empty">今日の面談はありません</div>');
+  h += '<div class="sec-h"><h2>明日の面談</h2></div>' + (mRows.length ? mRows.map(r => mini(r)).join('') : '<div class="empty">明日の面談はありません</div>');
+  h += '<div class="sec-h"><h2>報告がまだの面談</h2><span class="hint">押すと報告へ</span></div>' +
+    (need.length ? need.map(r => mini(r, true)).join('') : '<div class="empty">報告はぜんぶ済んでいます</div>');
+  if (todo.length) h += '<div class="sec-h"><h2>要対応</h2></div>' + todo.map(t =>
+    '<button type="button" class="todo' + (t.level === 'warn' ? ' warn' : '') + '"' + (t.applicant_id ? ' data-go-meet="' + esc(t.applicant_id) + '"' : '') + '>' + esc(t.text) + '</button>').join('');
+  const mn = monthNow(), rw = D.reward || {};
+  if (mn) h += '<button type="button" class="band" data-tab="num"><span class="h"><span>' + esc(ymLabel(mn.ym)) + 'の自分の数字</span><span>くわしく見る</span></span>' +
+    '<span class="g"><div>実施<b>' + mn.done + '<span>件</span></b></div><div>成約<b>' + mn.won + '<span>件</span></b></div><div>成約率<b>' + rate(mn) + '<span>%</span></b></div>' +
+    '<div>報酬<b>' + yen(rw.total) + '<span>円</span></b></div></span></button>';
+  $('#v-today').innerHTML = h;
+}
+function rate(m) { return m && m.done ? (Math.round(m.won / m.done * 1000) / 10) : 0; }
+
+// ---- 面談 ----
+function renderMeet() {
+  const all = rowsVis();
+  const cnt = p => all.filter(r => !p || r.project === p).length;
+  let h = '<div class="chips">' + [['', 'すべて'], ['広告', '広告'], ['旅キャリ', '旅キャリ']].map(([k, l]) =>
+    '<button type="button" data-fp="' + k + '" class="' + (FP === k ? 'on' : '') + '">' + l + '<span class="n">' + cnt(k) + '</span></button>').join('') + '</div>';
+  if (isAdmin()) {
+    const ms = D.members || [];
+    h += '<div class="chips">' + ['', ...ms].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) : '全員') +
+      '<span class="n">' + rowsAll().filter(r => !k || r.member === k).length + '</span></button>').join('') + '</div>';
+  }
+  const xw = WATCH._ext;
+  h += '<div style="margin:2px 0 12px"><button class="go second" type="button" id="addExt"' + (xw && xw.cls === 'wait' ? ' disabled' : '') + '>＋ UTAGEに無い予約を登録</button>' +
+    '<div class="note">LINE などで日程を決めて、UTAGE に予約が入っていない人を一覧・カレンダー・顧客マスターに載せます。</div>' +
+    (xw ? '<div class="result ' + xw.cls + '">' + esc(xw.text) + '</div>' : '') + '</div>';
+  const rows = all.filter(r => !FP || r.project === FP);
+  const need = rows.filter(r => r.report === 'needed').sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  const up = rows.filter(r => r.past !== '1' && r.report !== 'needed').sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  const done = rows.filter(r => r.past === '1' && r.report !== 'needed').sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  if (need.length) h += '<div class="day-h">終わった面談（報告がまだ）</div>' + need.map(card).join('');
+  let last = '';
+  up.forEach(r => {
+    const d = String(r.start).slice(0, 10);
+    if (d !== last) { last = d; h += '<div class="day-h">' + esc(md(d)) + (d === D.today ? '・今日' : d === addDays(D.today, 1) ? '・明日' : '') + '</div>'; }
+    h += card(r);
+  });
+  if (!need.length && !up.length) h += '<div class="empty">' + (FM ? esc(FM) + ' の' : '') + (FP ? FP + 'の' : '') + '面談の予定は、今日から2週間ありません</div>';
+  if (done.length) h += '<details class="more"><summary>終わった面談（報告済み） ' + done.length + '件</summary>' + done.map(card).join('') + '</details>';
+  const hist = (D.history || []);
+  if (hist.length) h += '<details class="more"><summary>最近の依頼 ' + hist.length + '件</summary>' + hist.map(histRow).join('') + '</details>';
+  $('#v-meet').innerHTML = h;
+}
+function histRow(q) {
+  const ng = ['error', 'expired', 'refused'].includes(q.status);
+  const st = { new: '受付済み', running: '実行中', done: '完了', refused: '実行せず', error: '失敗・要確認', expired: '期限切れ' }[q.status] || q.status;
+  const what = q.op === 'report' ? '報告' : q.op === 'ask' ? '営業Botへの質問' : ((OPS[q.op] || [q.op === 'ext_add' ? 'UTAGEに無い予約を登録' : q.op])[0]);
+  return '<div class="card hist' + (ng ? ' ng' : '') + '"><div class="tp"><b>' + esc(q.name || '') + '</b><span class="num">' + esc(mdt(q.created_at)) + '</span></div>' +
+    '<div class="note" style="margin:2px 0 0">' + esc(what) + '・' + esc(st) + (q.result_title ? '・' + esc(q.result_title) : '') + '</div></div>';
+}
+function tabiLocked(r) { return r.project === '旅キャリ' && !(D.features && D.features.op_tabi && r.can_operate === '1'); }
+function card(r) {
+  const id = r.applicant_id, w = WATCH[id], busy = !!r.busy || (w && w.cls === 'wait');
+  let b = tagOf(r).replace('class="tag', 'class="badge tag');
+  if (r.reminder_text) b += '<span class="badge ' + (r.reminder === 'on' ? 'on' : r.reminder === 'off' ? 'off' : '') + '">リマインド：' + esc(r.reminder_text) + '</span>';
+  if (r.hold_text) b += '<span class="badge off">' + esc(r.hold_text) + '</span>';
+  if (r.warn) b += '<span class="badge warn">' + esc(r.warn) + '</span>';
+  if (r.report === 'needed') b += '<span class="badge warn">報告がまだです</span>';
+  if (r.report === 'sending') b += '<span class="badge">報告を処理中</span>';
+  if (r.report === 'done') b += '<span class="badge on">報告済み' + (r.report_summary ? '：' + esc(r.report_summary) : '') + '</span>';
+  let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
+    '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div></div><div class="actions">';
+  const dis = busy ? ' disabled' : '';
+  if (r.project === '旅キャリ') {
+    h += '<div class="note" style="margin:0 0 10px">' + (r.insta ? 'インスタ @' + esc(instaKey(r.insta)) + '・' : '') + 'アポ ' + esc(r.appointer || '不明') +
+      (r.kind === 'tabi2' ? '<br>担当は一次面談の担当を出しています（変わっている場合があります）。' : '') + '</div>';
+  }
+  if (r.past === '1' || r.report === 'needed' || parse(r.start) <= nowD()) {
+    h += '<div class="act"><button class="go" type="button" data-go-report="' + esc(id) + '">' + (r.report === 'done' ? '報告を直す' : 'この面談の報告をする') + '</button></div>';
+  }
+  if (r.project === '旅キャリ' && tabiLocked(r)) {
+    h += '<div class="box y">旅キャリの予約です。日程変更やお客様とのやりとりは、UTAGE（旅キャリ側）の LINE チャットで行ってください。この画面からの操作は準備中です。</div>';
+  } else if (r.reminder === 'external') {
+    h += '<div class="act"><h3>面談の日時が変わったとき</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
+      '<button class="go" type="button" data-op="ext_move"' + dis + '>登録の日時を変える</button></div>' +
+      '<div class="act"><button class="go undo" type="button" data-op="ext_cancel"' + dis + '>登録を取り消す</button></div>';
+  } else if (r.can_operate !== '1') {
+    h += '<div class="note">この予約はこの画面の対象外です（LINE 未連携）。UTAGE の画面で対応してください。</div>';
+  } else if (r.past !== '1') {
+    if (r.reminder !== 'member') {
+      h += '<div class="act"><h3>面談の日時を手で変えたとき</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
+        '<button class="go" type="button" data-op="reschedule"' + dis + '>手動で日程変更した</button>' +
+        '<div class="note">新しい日時を入れて押すと、いまの日程のリマインドを止めて、新しい日時で組み直します。</div></div>';
+      if (r.reminder === 'on') h += '<div class="act"><button class="go second" type="button" data-op="hold"' + dis + '>リマインドだけ止める</button></div>';
+      if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
+      if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
+    }
+    const ms = isAdmin() ? (D.members || []) : (D.members || []);
+    h += '<div class="act"><h3>担当を変えるとき</h3><label class="l">新しい担当</label><select data-mb="' + esc(id) + '"><option value="">選んでください</option>' +
+      ms.map(x => '<option' + (MB[id] === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
+      '<label class="l">日時（変えるときだけ。空なら ' + esc(mdt(r.start)) + ' のまま）</label><input type="datetime-local" step="900" data-dt="m_' + esc(id) + '" value="' + esc(DT['m_' + id] || '') + '">' +
+      '<button class="go" type="button" data-op="member"' + dis + '>担当を変える</button>' +
+      '<div class="note">お客様の LINE へ「担当変更のお知らせ」が自動で届き、Zoom の案内も新しい担当のものに切り替わります。</div></div>';
+  }
+  if (w) h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
+  else if (r.busy) h += '<div class="result wait">処理中です…</div>';
+  return h + '</div></div>';
+}
+const DT = {}, MB = {};   // 入力途中の日時・担当（描き直しても消さない）
+
+function askOp(op, id) {
+  const r = meetingById(id); if (!r) return;
+  let arg = '', items = OPS[op][1], whoText = (r.kind === 'tabi2' ? '@' + instaKey(r.insta || r.name) : r.name + 'さん') + '（' + mdt(r.start) + '・担当 ' + (r.member || '未確認') + '）';
+  if (op === 'reschedule' || op === 'ext_move') {
+    const v = DT[id] || '';
+    if (!v) { toast('新しい日時を入れてください'); return; }
+    if (parse(v) <= nowD()) { toast('新しい日時が過去になっています'); return; }
+    arg = v.replace('T', ' ').slice(0, 16); whoText += ' → ' + mdt(arg);
+  }
+  if (op === 'member') {
+    const nm = MB[id] || '', nv = DT['m_' + id] || '', cur = String(r.member || '').toUpperCase();
+    if (!nm) { toast('新しい担当を選んでください'); return; }
+    if (nv && parse(nv) <= nowD()) { toast('新しい日時が過去になっています'); return; }
+    if (nm === cur && !nv) { toast('いまと同じ担当です。日時も変えるときは日時を入れてください'); return; }
+    const ns = nv ? nv.replace('T', ' ').slice(0, 16) : '';
+    arg = JSON.stringify({ member: nm, start: ns });
+    whoText = r.name + 'さん：担当 ' + cur + ' → ' + nm + '／日時 ' + (ns ? mdt(ns) + '（変更）' : mdt(r.start) + '（そのまま）');
+    items = nm === cur ? ['担当は ' + nm + ' のまま、日時だけ変えます', 'Zoom の案内を新しい日時に組み直します', '日時が変わったお知らせは送りません（担当から伝えてください）'] :
+      ['お客様の LINE へ「担当変更のお知らせ」が自動で届きます', cur + ' の Zoom の案内は止め、' + nm + ' の案内に切り替えます', '一覧・顧客マスター・カレンダーの担当を ' + nm + ' に直します',
+        'UTAGE の予約の担当は ' + cur + ' のまま残ります（UTAGE の仕組み上、変えられないため）', ns ? '日時も変えます' : '日時はそのままです'];
+  }
+  openSheet('<h3>' + esc(OPS[op][0]) + '</h3><div class="note" style="margin:0 0 4px">' + esc(whoText) + '</div><ul class="items">' + items.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' +
+    '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="opYes">実行する</button></div>');
+  $('#opYes').onclick = () => { closeSheet(); sendOp(op, id, arg); };
+}
+async function sendOp(op, id, arg) {
+  WATCH[id] = { cls: 'wait', text: '受け付けました。実行しています…（20〜60秒かかります）' }; render();
+  const j = await api('op', { client_id: cid('o'), applicant_id: id, op, arg });
+  if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  WATCH[id].id = j.id;
+  poll(j.id, q => {
+    if (q.status === 'timeout') WATCH[id] = { cls: 'ng', text: TIMEOUT_TEXT };
+    else WATCH[id] = { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    load(true);
+  });
+}
+function openExt() {
+  const u = D.user || {};
+  const ms = isAdmin() ? (D.members || []) : [String(u.member || '').toUpperCase()];
+  openSheet('<div class="sh-top"><h3>UTAGEに無い予約を登録</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="note" style="margin:0 0 6px">LINE などで日程を決めて、UTAGE に予約が入っていない人。お客様と日時を確定してから登録してください。</div>' +
+    '<label class="l" for="exName">氏名（本名。分からなければ LINE の名前）</label><input type="text" id="exName" maxlength="40" autocomplete="off">' +
+    '<label class="l" for="exStart">面談の日時</label><input type="datetime-local" id="exStart" step="900">' +
+    '<label class="l" for="exMember">担当</label><select id="exMember"' + (isAdmin() ? '' : ' disabled') + '>' + ms.map(m => '<option' + (m === FM ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>' +
+    '<label class="l" for="exLine">LINE の1対1トークのURL（必須）</label><input type="text" inputmode="url" id="exLine" maxlength="300" autocomplete="off" placeholder="…/line/talk#…">' +
+    '<div class="note" style="margin:-4px 0 4px">UTAGE のトーク画面か、Chatwork の「LINEメッセージを受信しました」の通知にあるURLを貼ってください。</div>' +
+    '<label class="l" for="exNote">メモ（任意）</label><input type="text" id="exNote" maxlength="200" autocomplete="off">' +
+    '<label class="check"><input type="checkbox" id="exSecond"> 2回目以降の面談（1回目を済ませた人と、担当が日程を決めた）</label>' +
+    '<ul class="items" id="exList"></ul><div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="exYes">登録する</button></div>');
+  const list = () => {
+    $('#exList').innerHTML = ($('#exSecond').checked
+      ? ['一覧とカレンダー（「2回目以降」付き）に載せます', '顧客マスターは1回目の日時・結果をそのままにします', 'お客様の LINE へ自動で送るのは Zoom の案内だけです']
+      : ['一覧・顧客マスター・カレンダーに載せます', 'お客様の LINE へ予約確定のお知らせ・ヒアリングシート・Zoom の案内を自動で送ります']).map(s => '<li>' + esc(s) + '</li>').join('');
+  };
+  list(); $('#exSecond').onchange = list;
+  $('#exYes').onclick = async () => {
+    const name = $('#exName').value.replace(/\s+/g, ' ').trim(), v = $('#exStart').value, line = $('#exLine').value.trim();
+    if (!name) { toast('氏名を入れてください'); return; }
+    if (!v) { toast('面談の日時を入れてください'); return; }
+    if (parse(v) <= nowD()) { toast('面談の日時が過去になっています'); return; }
+    if (!/\/line\/talk#[A-Za-z0-9]{3,24}\s*$/.test(line)) { toast('LINE の1対1トークのURL（…/line/talk#…）を貼ってください'); return; }
+    const d = { name, start: v.replace('T', ' ').slice(0, 16), member: $('#exMember').value, line_name: line, note: $('#exNote').value.trim(), second: $('#exSecond').checked };
+    closeSheet();
+    WATCH._ext = { cls: 'wait', text: name + 'さんの登録を受け付けました。実行しています…（20〜60秒かかります）' }; render();
+    const j = await api('op', { client_id: cid('o'), applicant_id: '', op: 'ext_add', arg: JSON.stringify(d) });
+    if (!j.ok) { WATCH._ext = { cls: 'ng', text: errMsg(j) }; render(); return; }
+    poll(j.id, q => {
+      WATCH._ext = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+      load(true);
+    });
+  };
+}
+
+// ---- 報告 ----
+function featOn(project) { const f = (D && D.features) || {}; return project === '旅キャリ' ? f.report_tabi === 'on' : f.report_ad === 'on'; }
+function startReport(id) {
+  const m = id === '__new__' ? { applicant_id: '', project: '旅キャリ', kind: '', name: '', insta: '', member: String((D.user || {}).member || ''), stage: '旅キャリ（一覧にない面談）', start: '' } : meetingById(id);
+  if (!m) return;
+  let f = {};
+  if (!DEMO && m.applicant_id) { try { f = JSON.parse(ls.get('draft_' + m.applicant_id, '{}')) || {}; } catch (e) { f = {}; } }
+  if (!f.second_member) f.second_member = m.member || '';
+  REP = { aid: id, m, f, errs: [] }; REP_SENT = null;
+  showTab('report');
+}
+function saveDraft() { if (!DEMO && REP && REP.m.applicant_id) ls.set('draft_' + REP.m.applicant_id, JSON.stringify(REP.f)); }
+function spec() { if (!REP) return null; return REP.m.project === '旅キャリ' ? TABI[REP.f.result] : AD[REP.f.result]; }
+function opt(k, v, label, small, on) { return '<button type="button" class="opt" data-k="' + k + '" data-v="' + esc(v) + '" aria-pressed="' + !!on + '">' + esc(label || v) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>'; }
+
+function renderReport() {
+  const v = $('#v-report');
+  if (REP_SENT) { v.innerHTML = sentHtml(); return; }
+  if (!REP) { v.innerHTML = chooserHtml(); return; }
+  v.innerHTML = formHtml();
+}
+function chooserHtml() {
+  const rows = rowsVis();
+  const need = rows.filter(r => r.report === 'needed').sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  const nowS = stamp(nowD());
+  const started = rows.filter(r => r.report === '' && String(r.start) <= nowS);
+  const done = rows.filter(r => r.report === 'done').sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  let h = '<div class="sec-h" style="margin-top:4px"><h2>どの面談の報告ですか</h2></div>';
+  if (need.length) h += need.map(r => pickRow(r, true)).join('');
+  if (started.length) h += '<div class="day-h">始まった面談</div>' + started.map(r => pickRow(r)).join('');
+  if (!need.length && !started.length) h += '<div class="empty">報告がまだの面談はありません。<br>面談が終わると、ここに出ます。</div>';
+  h += '<button class="go second" type="button" data-go-report="__new__" style="margin-top:12px">一覧にない旅キャリの面談を報告する</button>' +
+    '<div class="note">一覧に出ていない旅キャリの面談だけ。広告の面談が一覧にないときは、面談タブの「＋ UTAGEに無い予約を登録」から。</div>';
+  if (done.length) h += '<details class="more"><summary>報告済みの面談（直すとき） ' + done.length + '件</summary>' + done.map(r => pickRow(r)).join('') + '</details>';
+  h += '<div class="box info" style="margin-top:14px">報告は、会社の管理表（業務委託契約書の「甲所定の管理表」）として残ります。成約と金額は、契約書と入金で確定します。</div>';
+  return h;
+}
+function pickRow(r, need) {
+  return '<button type="button" class="mc pick' + (need ? ' need' : '') + '" data-go-report="' + esc(r.applicant_id) + '"><span class="t"><small>' + esc(md(r.start)) + '</small>' + esc(hm(r.start)) + '</span>' +
+    '<span><span class="nm">' + custName(r) + '</span><span class="sb" style="display:block">' + tagOf(r) + ' ' + esc(r.stage) + (isAdmin() ? '・担当 ' + esc(r.member) : '') +
+    (r.report === 'done' && r.report_summary ? '・' + esc(r.report_summary) : '') + '</span></span><span class="go-r">' + (r.report === 'done' ? '直す' : '報告する') + '</span></button>';
+}
+function formHtml() {
+  const m = REP.m, f = REP.f, tabi = m.project === '旅キャリ', s = spec();
+  let h = '<div class="card pad"><div class="mt"><div><div class="nm" style="font-weight:900;color:var(--head)">' + (m.applicant_id ? custName(m) : '一覧にない旅キャリの面談') + '</div>' +
+    '<div class="note" style="margin:0">' + tagOf(m) + ' ' + esc(m.stage) + (m.start ? '・' + esc(mdt(m.start)) : '') + '・担当 ' + esc(m.member || '未確認') + '</div></div>' +
+    '<button class="linkbtn" type="button" id="repBack">選び直す</button></div></div>';
+  if (!featOn(m.project)) h += '<div class="box y" style="margin-bottom:10px">' + (tabi ? '旅キャリの報告は、切り替え日までは、これまでの Google フォームで入力してください。この画面からはまだ送れません。' : '広告の報告は準備中です。この画面からはまだ送れません。') + '</div>';
+  if (tabi && !m.applicant_id || tabi && !m.insta) {
+    h += '<div class="q"><div class="qt">お客様のインスタのユーザー名<small>顧客リストの行を探すため</small></div><input type="text" data-f="insta" value="' + esc(f.insta || '') + '" placeholder="例：tabi_hanako（URLでも可）" autocomplete="off" autocapitalize="off" spellcheck="false"></div>';
+  }
+  // 結果
+  const opts = tabi ? Object.keys(TABI).filter(k => !m.kind || (m.kind === 'tabi1' ? TABI[k].stage === '一次' : m.kind === 'tabi2' ? TABI[k].stage === '二次' : true)) : Object.keys(AD);
+  h += '<div class="q"><div class="qt">' + (tabi ? '面談の結果' : '商談の結果') + '</div><div class="opts' + (tabi ? '' : ' two') + '">' + opts.map(k => opt('result', k, k, '', f.result === k)).join('') + '</div></div>';
+  if (!s) { h += '<div class="note" style="text-align:center">結果を選ぶと、続きの項目が出ます。</div>'; return h; }
+  // 旅キャリ：二次面談の日時
+  if (tabi && s.date) {
+    h += '<div class="q"><div class="qt">二次面談の日付と開始時間</div><div class="row2"><input type="date" data-f="second_date" value="' + esc(f.second_date || '') + '"><input type="time" step="300" data-f="second_time" value="' + esc(f.second_time || '') + '"></div>' +
+      '<label class="l">二次面談の担当<small style="font-weight:500">（基本は一次面談と同じ）</small></label><select data-f="second_member">' +
+      (D.members || []).map(x => '<option' + ((f.second_member || m.member) === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
+      '<div class="note" style="margin:0">送ると、二次面談のカレンダーに90分の予定を入れ、担当をゲストに招待します。</div></div>';
+  }
+  // 広告：次回の商談
+  if (!tabi) {
+    const nx = f.next || (s.next ? 'あり' : 'なし');
+    h += '<div class="q"><div class="qt">' + (s.next ? '新しい商談の日時' : '次回の商談') + '</div>' +
+      (s.next ? '' : '<div class="opts two" style="margin-bottom:8px">' + opt('next', 'あり', 'あり', '', nx === 'あり') + opt('next', 'なし', 'なし', '', nx === 'なし') + '</div>') +
+      (nx === 'あり' ? '<div class="row2"><input type="date" data-f="next_date" value="' + esc(f.next_date || '') + '"><input type="time" step="300" data-f="next_time" value="' + esc(f.next_time || '') + '"></div>' +
+        '<div class="note" style="margin:0">' + (s.next ? '送ると、面談の日程変更として扱い、リマインドを組み直します。' : '送ると、2回目の商談として面談の一覧とカレンダーに載り、お客様へ Zoom の案内が届きます。') + '</div>' : '') + '</div>';
+  }
+  // リード区分
+  if (s.att) {
+    const auto = rankOf(f.want, f.pay), fin = f.rank || auto;
+    h += '<div class="q"><div class="qt">リード区分<small>2つの問いに答えると決まります</small></div>' +
+      '<div class="l" style="font-size:13px;color:var(--sub);font-weight:700;margin:2px 0 4px">グローバルフリーランスとして働きたい気持ち</div><div class="opts">' +
+      WANTS.map(([w, g]) => opt('want', w, w, g, f.want === w)).join('') + '</div>' +
+      '<div class="l" style="font-size:13px;color:var(--sub);font-weight:700;margin:10px 0 4px">決済能力</div><div class="opts">' +
+      PAYS.map(([p, g]) => opt('pay', p, p, g, f.pay === p)).join('') + '</div>' +
+      '<div class="note" style="margin-top:6px">借入れは勧めません。値引きや支払条件の個別の約束はせず、会社へ引き継いでください。</div>';
+    if (auto) {
+      h += '<div class="rank"><div class="L">' + esc(fin) + '</div><div class="def">' + esc(DEFS[fin]) +
+        (f.rank && f.rank !== auto ? '<small>手で直しました（自動の判定は <b>' + esc(auto) + '</b>）</small>' : '<small>2つの答えから自動で決めました</small>') + '</div></div>' +
+        '<div class="rank-fix">区分を手で直す<span style="flex:1"></span>' + ['A', 'B', 'C', 'D'].map(x => '<button type="button" data-rank="' + x + '" aria-pressed="' + (fin === x) + '">' + x + '</button>').join('') + '</div>';
+    }
+    h += '</div>';
+  }
+  // 未成約の理由
+  if (s.reason) {
+    h += '<div class="q"><div class="qt">' + (REP.f.result.indexOf('検討中') >= 0 ? '決めきれなかった理由' : '未成約の理由') + '</div><div class="opts two">' + LOST.map(x => opt('lost_reason', x, x, '', f.lost_reason === x)).join('') + '</div>' +
+      (f.lost_reason === 'その他' ? '<input type="text" data-f="lost_reason_note" maxlength="200" value="' + esc(f.lost_reason_note || '') + '" placeholder="ひとこと（必須）" style="margin-top:8px">' : '') +
+      (f.lost_reason === '価格' ? '<div class="note">値引きや支払条件の個別の約束はせず、会社へ引き継いでください。</div>' : '') + '</div>';
+  }
+  h += '<div class="q"><div class="qt">次回アクション' + (s.action ? '<small>検討中のときは必須</small>' : '<small>任意</small>') + '</div><input type="text" data-f="next_action" maxlength="300" value="' + esc(f.next_action || '') + '" placeholder="例：金曜に家族と話した結果を聞く"></div>';
+  h += '<div class="q"><div class="qt">振り返り<small>任意・チームに共有されます</small></div><textarea data-f="reflection" maxlength="2000" placeholder="うまくいったこと・次に変えること">' + esc(f.reflection || '') + '</textarea></div>';
+  h += '<div id="repErrs">' + errsHtml() + '</div>';
+  h += '<button class="go" type="button" id="repNext"' + (featOn(m.project) ? '' : ' disabled') + '>確認へ進む</button>';
+  return h;
+}
+function errsHtml() { return REP && REP.errs.length ? '<div class="box warn" style="margin-bottom:10px"><ul class="errs">' + REP.errs.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul></div>' : ''; }
+function recheck() { if (REP && REP.errs.length) { REP.errs = checkReport(); const b = $('#repErrs'); if (b) b.innerHTML = errsHtml(); } }
+function checkReport() {
+  const m = REP.m, f = REP.f, e = [], tabi = m.project === '旅キャリ', s = spec(), now = nowD();
+  if (!s) return ['結果を選んでください'];
+  if (tabi) {
+    if (m.kind === 'tabi1' && s.stage !== '一次') e.push('一次面談の予約に、二次面談の結果は付けられません');
+    if (m.kind === 'tabi2' && s.stage !== '二次') e.push('二次面談の予定に、一次面談の結果は付けられません');
+    if (!instaKey(m.insta || f.insta)) e.push('お客様のインスタのユーザー名を入れてください');
+    if (s.date) {
+      const d = f.second_date && f.second_time ? parse(f.second_date + ' ' + f.second_time) : null;
+      if (!d) e.push('二次面談の日付と開始時間を入れてください'); else if (d < new Date(now.getTime() - 300000)) e.push('二次面談の日時が過去になっています');
+      if (!(f.second_member || m.member)) e.push('二次面談の担当を選んでください');
+    }
+  } else {
+    const nx = f.next || (s.next ? 'あり' : 'なし');
+    if (nx === 'あり') {
+      const d = f.next_date && f.next_time ? parse(f.next_date + ' ' + f.next_time) : null;
+      if (!d) e.push(s.next ? '新しい商談の日付と開始時間を入れてください' : '次回の商談の日付と開始時間を入れてください'); else if (d <= now) e.push('次回の商談の日時が過去になっています');
+    }
+    if (s.action && !String(f.next_action || '').trim()) e.push('検討中のときは、次回アクションを書いてください');
+  }
+  if (s.att && (!f.want || !f.pay)) e.push('リード区分の2つの問いに答えてください');
+  if (s.reason) { if (!LOST.includes(f.lost_reason)) e.push('理由を選んでください'); else if (f.lost_reason === 'その他' && !String(f.lost_reason_note || '').trim()) e.push('理由が「その他」のときは、ひとこと書いてください'); }
+  return e;
+}
+function payload() {
+  const m = REP.m, f = REP.f, s = spec(), tabi = m.project === '旅キャリ', p = { project: m.project, result: f.result };
+  if (tabi && s.date) Object.assign(p, { second_date: f.second_date, second_time: f.second_time, second_member: f.second_member || m.member });
+  if (s.att) { const auto = rankOf(f.want, f.pay); Object.assign(p, { want: f.want, pay: f.pay, rank: f.rank || auto, rank_auto: auto }); }
+  if (s.reason) { p.lost_reason = f.lost_reason; if (f.lost_reason === 'その他') p.lost_reason_note = String(f.lost_reason_note || '').trim(); }
+  if (!tabi) { const nx = f.next || (s.next ? 'あり' : 'なし'); p.next = nx; if (nx === 'あり') Object.assign(p, { next_date: f.next_date, next_time: f.next_time }); }
+  if (String(f.next_action || '').trim()) p.next_action = String(f.next_action).trim();
+  if (String(f.reflection || '').trim()) p.reflection = String(f.reflection).trim();
+  if (tabi && (!m.insta || !m.applicant_id)) p.insta = instaKey(f.insta);
+  return p;
+}
+function confirmReport() {
+  REP.errs = checkReport();
+  if (REP.errs.length) { renderReport(); const b = $('#repErrs .box'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+  const p = payload(), m = REP.m, line = (k, v) => v ? '<div><span>' + esc(k) + '</span><span>' + esc(v) + '</span></div>' : '';
+  openSheet('<div class="sh-top"><h3>この内容で送りますか</h3><button class="x" type="button" data-close>直す</button></div>' +
+    '<div class="conf">' + line('面談', (m.applicant_id ? (m.kind === 'tabi2' ? '@' + instaKey(m.insta || m.name) : m.name + 'さん') + '・' + mdt(m.start) : '一覧にない旅キャリの面談')) +
+    line('案件', m.project) + line('インスタ', p.insta ? '@' + p.insta : '') + line('結果', p.result) +
+    line('二次面談', p.second_date ? mdt(p.second_date + ' ' + p.second_time) + '〜・担当 ' + p.second_member : '') +
+    line('次回の商談', p.next === 'あり' ? mdt(p.next_date + ' ' + p.next_time) + '〜' : (p.next === 'なし' ? 'なし' : '')) +
+    line('リード区分', p.rank ? p.rank + (p.rank !== p.rank_auto ? '（手で直した・自動は ' + p.rank_auto + '）' : '') + '：' + DEFS[p.rank] : '') +
+    line('気持ち・決済', p.want ? p.want + '・' + p.pay : '') + line('理由', p.lost_reason ? p.lost_reason + (p.lost_reason_note ? '：' + p.lost_reason_note : '') : '') +
+    line('次回アクション', p.next_action) + line('振り返り', p.reflection) + '</div>' +
+    '<div class="note" style="margin:0 0 10px">送ると、顧客リスト・Discord・カレンダー・Notion など、決まった先へ自動で反映します。</div>' +
+    '<div class="row2"><button class="go second" type="button" data-close>直す</button><button class="go" type="button" id="repSend">送信する</button></div>');
+  $('#repSend').onclick = sendReport;
+}
+async function sendReport() {
+  const b = $('#repSend'); if (b) { b.disabled = true; b.textContent = '送っています…'; }
+  const m = REP.m, p = payload();
+  const j = await api('report', { client_id: cid('r'), applicant_id: m.applicant_id, report: p });
+  closeSheet();
+  if (!j.ok) { REP.errs = j.errors || [errMsg(j)]; renderReport(); toast(errMsg(j)); return; }
+  if (m.applicant_id) { ls.del('draft_' + m.applicant_id); const r = meetingById(m.applicant_id); if (r) r.report = 'sending'; }
+  REP_SENT = { m, p, will: j.will || [], w: { cls: 'wait', text: '受け付けました。反映しています…（20〜60秒かかります）' } };
+  REP = null; render(); window.scrollTo(0, 0);
+  poll(j.id, q => {
+    if (!REP_SENT) return;
+    REP_SENT.w = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } :
+      { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    load(true);
+  });
+}
+function sentHtml() {
+  const s = REP_SENT;
+  return '<div class="card pad"><h2 style="margin:0 0 4px;font-size:18px;color:var(--head)">受け付けました</h2>' +
+    '<div class="note" style="margin:0">' + (s.m.applicant_id ? esc(s.m.kind === 'tabi2' ? '@' + instaKey(s.m.insta || s.m.name) : s.m.name + 'さん') + '・' : '') + esc(s.p.result) + (s.p.rank ? '・区分 ' + esc(s.p.rank) : '') + '</div>' +
+    (s.will.length ? '<div class="sec-h" style="margin:14px 0 4px"><h2 style="font-size:14px">反映される先</h2></div><ul class="will">' + s.will.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+    '<div class="result ' + s.w.cls + '">' + esc(s.w.text) + '</div></div>' +
+    '<button class="go" type="button" id="repMore" style="margin-top:6px">ほかの面談を報告する</button>';
+}
+function setField(k, v) {
+  const f = REP.f;
+  if (k === 'result' && f.result !== v) { f.result = v; REP.errs = []; }
+  else f[k] = (f[k] === v && (k === 'want' || k === 'pay' || k === 'lost_reason')) ? '' : v;
+  if (k === 'want' || k === 'pay') f.rank = '';
+  if (REP.errs.length) REP.errs = checkReport();
+  saveDraft(); renderReport();
+}
+
+// ---- 数字 ----
+function renderNum() {
+  const st = D.stats || {}, months = st.months || [];
+  let h = '';
+  if (isAdmin()) {
+    h += '<div class="chips"><button type="button" data-all="1" class="' + (NUM_ALL ? 'on' : '') + '">全員の表</button><button type="button" data-all="0" class="' + (!NUM_ALL ? 'on' : '') + '">自分の数字</button></div>';
+    if (NUM_ALL) { $('#v-num').innerHTML = h + adminHtml(); return; }
+  }
+  if (!months.length) { $('#v-num').innerHTML = h + '<div class="empty">まだ数字がありません</div>'; return; }
+  const cur = months[Math.min(NUM_I, months.length - 1)];
+  h += '<div class="chips">' + months.slice(0, 2).map((x, i) => '<button type="button" data-ni="' + i + '" class="' + (NUM_I === i ? 'on' : '') + '">' + (i === 0 ? '今月' : '先月') + '（' + esc(ymLabel(x.ym)) + '）</button>').join('') + '</div>';
+  h += '<div class="tiles"><div class="tile"><small>実施</small><b>' + cur.done + '</b><span>件</span></div><div class="tile"><small>成約</small><b>' + cur.won + '</b><span>件</span></div>' +
+    '<div class="tile"><small>成約率</small><b>' + rate(cur) + '</b><span>%</span></div></div>';
+  const bp = cur.by_project || {};
+  h += '<div class="sec-h"><h2>案件ごと</h2></div><div class="tw"><table class="t"><tr><th>案件</th><th>実施</th><th>成約</th><th>成約率</th></tr>' +
+    ['広告', '旅キャリ'].map(p => { const x = bp[p] || { done: 0, won: 0 }; return '<tr><td>' + p + '</td><td class="num">' + x.done + '</td><td class="num">' + x.won + '</td><td class="num">' + rate(x) + '%</td></tr>'; }).join('') + '</table></div>';
+  const rk = cur.ranks || {}, tot = ['A', 'B', 'C', 'D'].reduce((a, k) => a + (rk[k] || 0), 0);
+  h += '<div class="sec-h"><h2>リード区分の割合</h2><span class="hint">面談をした人のうち</span></div><div class="tw"><table class="t"><tr><th>区分</th><th class="l">中身</th><th>人数</th><th>割合</th></tr>' +
+    ['A', 'B', 'C', 'D'].map(k => '<tr><td class="num"><b>' + k + '</b></td><td class="l" style="white-space:normal;font-size:12.5px">' + esc(DEFS[k]) + '</td><td class="num">' + (rk[k] || 0) + '</td><td class="num">' + (tot ? Math.round((rk[k] || 0) / tot * 100) : 0) + '%</td></tr>').join('') +
+    (rk.none ? '<tr><td colspan="2" class="l">区分なし（不参加など）</td><td class="num">' + rk.none + '</td><td></td></tr>' : '') + '</table></div>';
+  h += '<div class="sec-h"><h2>月ごとの推移</h2></div><div class="tw"><table class="t"><tr><th>月</th><th>実施</th><th>成約</th><th>成約率</th><th>区分A</th></tr>' +
+    months.map(x => '<tr><td>' + esc(ymLabel(x.ym)) + '</td><td class="num">' + x.done + '</td><td class="num">' + x.won + '</td><td class="num">' + rate(x) + '%</td><td class="num">' + ((x.ranks || {}).A || 0) + '</td></tr>').join('') + '</table></div>';
+  if (st.gap && st.gap.length) h += '<div class="box y" style="margin-top:10px">報告と契約書・入金の記録で食い違いがあります<ul class="errs" style="margin:4px 0 0">' + st.gap.map(g => '<li>' + esc(g) + '</li>').join('') + '</ul></div>';
+  h += rewardHtml();
+  const hist = st.history || [];
+  h += '<div class="sec-h"><h2>これまでの面談</h2><span class="hint">新しい順</span></div>' + (hist.length ? '<div class="tw"><table class="t"><tr><th>日付</th><th class="l">案件</th><th class="l">結果</th><th>区分</th></tr>' +
+    hist.map(x => '<tr><td class="num">' + esc(mdShort(x.date)) + '</td><td class="l">' + esc(x.project) + (x.stage ? '<small>' + esc(x.stage) + '</small>' : '') + '</td><td class="l">' + esc(x.result) + '</td><td class="num">' + esc(x.rank || '') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">まだありません</div>');
+  $('#v-num').innerHTML = h;
+}
+function mdShort(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() : ''; }
+function rewardHtml() {
+  const rw = D.reward || {}; if (!rw.month) return '';
+  const lines = rw.lines || [];
+  let h = '<div class="sec-h"><h2>報酬</h2><span class="hint">入金があった月で数えます</span></div>' +
+    '<div class="pay"><div class="h">' + esc(ymLabel(rw.month)) + 'の報酬（入金ベース）</div><div class="big">' + yen(rw.total) + '<span>円</span></div>' +
+    '<div class="sm">うち確定 <b>' + yen(rw.confirmed) + '円</b>・確定前 <b>' + yen(rw.pending) + '円</b></div>' +
+    (rw.prev ? '<div class="sm">先月（' + esc(ymLabel(rw.prev.month)) + '）は <b>' + yen(rw.prev.total) + '円</b></div>' : '') + '</div>';
+  h += '<div class="sec-h" style="margin-top:12px"><h2 style="font-size:14px">内訳</h2><span class="hint">成約ごと・入金ごと</span></div>' + (lines.length ? '<div class="tw">' +
+    lines.map(l => '<div class="rl"><div class="rl-l"><b>' + esc(mdShort(l.contracted_on)) + ' 成約・' + esc(l.project) + '</b>' + (l.label ? '<small>' + esc(l.label) + '</small>' : '') +
+      '<small>入金 ' + yen(l.paid_amount) + '円・' + esc(l.rate_text) + '</small></div><div class="rl-r"><b class="num">' + yen(l.reward) + '<span>円</span></b>' +
+      '<small class="' + (l.status === '確定' ? 'st-ok' : 'st-wait') + '">' + esc(l.status) + '</small></div></div>').join('') + '</div>' : '<div class="empty">この月の入金はまだありません</div>');
+  if ((rw.excluded || []).length) h += '<div class="box info" style="margin-top:8px">対象外になった成約<ul class="errs" style="margin:4px 0 0">' + rw.excluded.map(x => '<li>' + esc(mdShort(x.contracted_on)) + ' 成約：' + esc(x.reason) + '</li>').join('') + '</ul></div>';
+  h += '<div class="note">「確定前」は成約から30日たっていない分です（クーリングオフなどで外れることがあります）。分割は入金のたびに数えます。' + (rw.note ? esc(rw.note) : '') + '</div>';
+  return h;
+}
+function adminHtml() {
+  const a = D.admin || {}, tb = a.table || [];
+  const yms = [...new Set(tb.map(x => x.ym))].sort().reverse();
+  const ym = yms[Math.min(NUM_I, yms.length - 1)] || '';
+  let h = '<div class="chips">' + yms.slice(0, 3).map((x, i) => '<button type="button" data-ni="' + i + '" class="' + (NUM_I === i ? 'on' : '') + '">' + esc(ymLabel(x)) + '</button>').join('') + '</div>';
+  const ms = [...new Set(tb.map(x => x.member))];
+  const cell = (m, p) => { const x = tb.find(t => t.ym === ym && t.member === m && t.project === p) || { done: 0, won: 0 }; return x; };
+  const dw = x => '<td class="num">' + x.done + '件<small>成約 ' + x.won + '件</small></td>';
+  h += '<div class="sec-h" style="margin-top:6px"><h2>案件別・担当者別（' + esc(ymLabel(ym)) + '）</h2><span class="hint">実施と成約</span></div><div class="tw"><table class="t"><tr><th>担当</th><th>広告</th><th>旅キャリ</th><th>成約率</th></tr>' +
+    ms.map(m => { const A = cell(m, '広告'), T = cell(m, '旅キャリ');
+      return '<tr><td>' + esc(m) + '</td>' + dw(A) + dw(T) + '<td class="num">' + rate({ done: A.done + T.done, won: A.won + T.won }) + '%</td></tr>'; }).join('') + '</table></div>';
+  h += '<div class="sec-h"><h2>月ごと（全員）</h2><span class="hint">実施と成約</span></div><div class="tw"><table class="t"><tr><th>月</th><th>広告</th><th>旅キャリ</th><th>成約率</th></tr>' +
+    yms.map(y => { const s = p => tb.filter(t => t.ym === y && t.project === p).reduce((acc, t) => ({ done: acc.done + t.done, won: acc.won + t.won }), { done: 0, won: 0 }); const A = s('広告'), T = s('旅キャリ');
+      return '<tr><td>' + esc(ymLabel(y)) + '</td>' + dw(A) + dw(T) + '<td class="num">' + rate({ done: A.done + T.done, won: A.won + T.won }) + '%</td></tr>'; }).join('') + '</table></div>';
+  const rr = a.rank_rates || [];
+  if (rr.length) h += '<div class="sec-h"><h2>リード区分ごとの成約率</h2><span class="hint">担当者が付けた区分</span></div><div class="tw"><table class="t"><tr><th>区分</th><th>面談</th><th>成約</th><th>成約率</th></tr>' +
+    rr.map(x => '<tr><td class="num"><b>' + esc(x.rank) + '</b></td><td class="num">' + x.done + '</td><td class="num">' + x.won + '</td><td class="num">' + rate(x) + '%</td></tr>').join('') + '</table></div>';
+  const un = (a.unreported || []).slice().sort((x, y) => String(y.start).localeCompare(String(x.start)));
+  h += '<div class="sec-h"><h2>報告がまだの面談</h2><span class="hint">' + un.length + '件</span></div>' + (un.length ? '<div class="tw"><table class="t"><tr><th class="l">面談</th><th class="l">お客様</th><th class="l">担当</th></tr>' +
+    un.map(x => '<tr><td class="l num">' + esc(mdt(x.start)) + '</td><td class="l">' + esc(x.name) + '<small>' + esc(x.project) + '</small></td><td class="l">' + esc(x.member) + '</td></tr>').join('') + '</table></div>' : '<div class="empty">ありません</div>');
+  return h;
+}
+
+// ---- 資料 ----
+let FAQ_Q = '';
+function renderDocs() {
+  const links = D.links || [], faq = D.faq || [];
+  let h = '<div class="sec-h" style="margin-top:4px"><h2>リンク</h2></div>' + (links.length ? links.map(l =>
+    '<a class="lk" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(l.title) + '</b>' + (l.note ? '<span>' + esc(l.note) + '</span>' : '') + '</a>').join('') : '<div class="empty">まだありません</div>');
+  h += '<div class="sec-h"><h2>よくある質問</h2><span class="hint">' + faq.length + '件</span></div><input type="search" id="faqQ" placeholder="ことばで探す（例：分割）" value="' + esc(FAQ_Q) + '">';
+  h += '<div id="faqList">' + faqHtml() + '</div>';
+  h += '<div class="note">答えの元は営業Q&A正ナレッジです。ここに無いことは、右下の営業Botに聞いてください。</div>';
+  $('#v-docs').innerHTML = h;
+}
+function faqHtml() {
+  const q = FAQ_Q.trim(), list = (D.faq || []).filter(x => !q || (x.q + x.a + (x.tag || '')).indexOf(q) >= 0);
+  return list.length ? list.map(x => '<details class="faq"><summary>' + esc(x.q) + '</summary><div class="a">' + esc(x.a) + '<div class="disc">' + DISCLAIMER + '</div></div></details>').join('') : '<div class="empty">見つかりませんでした</div>';
+}
+function safeUrl(u) { return /^https?:\/\//i.test(String(u || '')) ? u : '#'; }
+
+// ---- 営業Bot ----
+function openBot() {
+  BOT.open = true;
+  const on = D && D.features && D.features.bot === 'on';
+  const faq = (D && D.faq) || [];
+  openSheet('<div class="botwrap"><div class="sh-top"><h3>営業Bot</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="intro">営業Q&A正ナレッジと、あなたの案件をもとに答えます。よくある質問はすぐ出ます。</div>' +
+    (faq.length ? '<div class="qchips">' + faq.slice(0, 6).map((x, i) => '<button type="button" data-faq="' + i + '">' + esc(x.q) + '</button>').join('') + '</div>' : '') +
+    '<div class="chat" id="chat"></div>' +
+    (on ? '<div class="ask"><textarea id="botQ" maxlength="500" placeholder="ここに質問を書く"></textarea><button class="go" type="button" id="botSend">送る</button></div>'
+      : '<div class="box y">自由な質問は準備中です。上のよくある質問から選んでください。</div>') + '</div>', 'bot');
+  drawChat();
+  const send = $('#botSend'); if (send) send.onclick = askBot;
+}
+function drawChat() {
+  const c = $('#chat'); if (!c) return;
+  c.innerHTML = BOT.msgs.map(m => {
+    if (m.who === 'me') return '<div class="bub me">' + esc(m.text) + '</div>';
+    if (m.state === 'wait') return '<div class="bub bot wait">答えを探しています…（20〜60秒ほど）</div>';
+    if (m.state === 'ng') return '<div class="bub bot ng">' + esc(m.text) + '<button class="linkbtn" type="button" data-retry="' + m.i + '" style="display:block">もう一度送る</button></div>';
+    return '<div class="bub bot">' + esc(m.text) + (m.src && m.src.length ? '<span class="src">根拠：' + esc(m.src.join('・')) + '</span>' : '') + '<div class="disc">' + DISCLAIMER + '</div></div>';
+  }).join('');
+  const sh = $('#sheet'); sh.scrollTop = sh.scrollHeight;
+}
+function faqToChat(i) {
+  const x = (D.faq || [])[i]; if (!x) return;
+  BOT.msgs.push({ who: 'me', text: x.q }, { who: 'bot', text: x.a, src: ['よくある質問'] }); drawChat();
+}
+async function askBot(again) {
+  let q;
+  if (typeof again === 'number') { q = BOT.msgs[again - 1] && BOT.msgs[again - 1].text; BOT.msgs.splice(again, 1); }
+  else { const t = $('#botQ'); q = t ? t.value.trim() : ''; if (!q) { if (t) t.focus(); return; } t.value = ''; BOT.msgs.push({ who: 'me', text: q }); }
+  const slot = { who: 'bot', state: 'wait' }; BOT.msgs.push(slot); slot.i = BOT.msgs.length - 1; drawChat();
+  const j = await api('ask', { client_id: cid('a'), q, context: { tab: TAB } });
+  const fail = text => { slot.state = 'ng'; slot.text = text; slot.i = BOT.msgs.indexOf(slot); drawChat(); };
+  if (!j.ok) { fail(errMsg(j)); return; }
+  poll(j.id, r => {
+    if (r.status === 'done' && r.answer) { slot.state = ''; slot.text = r.answer; slot.src = r.sources || []; drawChat(); }
+    else fail(r.status === 'timeout' ? '答えを受け取れませんでした（3分たっても返ってきません）。少し待ってもう一度送ってください。' : '答えを受け取れませんでした。' + (r.result_lines ? '\n' + r.result_lines : '') + '\n少し待ってもう一度送ってください。');
+  });
+}
+
+// ---- 下から出る画面・お知らせ ----
+function openSheet(html, kind) { const s = $('#sheet'); s.dataset.kind = kind || ''; s.innerHTML = html; $('#scrim').classList.add('on'); s.classList.add('on'); s.scrollTop = 0; }
+function closeSheet() { $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); if ($('#sheet').dataset.kind === 'bot') BOT.open = false; }
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
+
+// ---- 画面の切り替え・読み込み ----
+function showTab(t) {
+  TAB = t;
+  ['today', 'meet', 'report', 'num', 'docs'].forEach(k => { $('#v-' + k).hidden = k !== t; });
+  $$('[data-tab]').forEach(b => { if (b.classList.contains('tab')) b.setAttribute('aria-selected', b.dataset.tab === t); });
+  if (!DEMO) ls.set('tab', t);
+  render(); window.scrollTo(0, 0);
+}
+let loading = false;
+async function load(quiet) {
+  if (loading) return; loading = true;
+  if (!quiet) $('#meta').textContent = '読み込み中…';
+  const j = await api('me', isAdmin() && FM ? { who: FM } : {});
+  loading = false;
+  if (!j.ok) {
+    if (j.error === 'key') { ls.del('key'); gate('このURLでは開けません', ERR.key); return; }
+    if (!D) { $('#v-today').innerHTML = '<div class="empty">読み込めませんでした。' + esc(errMsg(j)) + '</div>'; $('#meta').textContent = '読み込めませんでした'; }
+    else toast(errMsg(j));
+    return;
+  }
+  D = j; render();
+}
+function gate(title, text) {
+  ['today', 'meet', 'report', 'num', 'docs'].forEach(k => { $('#v-' + k).hidden = true; });
+  $('#gate').hidden = false; $('#gate').innerHTML = '<div class="gate"><h2>' + esc(title) + '</h2><p>' + esc(text) + '</p></div>';
+  $('#meta').textContent = ''; $('.tabbar').hidden = true; $('#fab').hidden = true; $('#reload').hidden = true;
+}
+
+// ---- 操作の受け口（1か所でまとめて受ける） ----
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.closest('[data-close]')) { closeSheet(); return; }
+  const tb = t.closest('[data-tab]'); if (tb) { showTab(tb.dataset.tab); return; }
+  const gr = t.closest('[data-go-report]'); if (gr) { startReport(gr.dataset.goReport); return; }
+  const gm = t.closest('[data-go-meet]'); if (gm) {
+    const id = gm.dataset.goMeet; OPEN = id; FP = ''; showTab('meet');
+    const el = $('.card[data-id="' + CSS.escape(id) + '"]'); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
+    return;
+  }
+  const fp = t.closest('[data-fp]'); if (fp) { FP = fp.dataset.fp; render(); return; }
+  const fm = t.closest('[data-fm]'); if (fm) { FM = fm.dataset.fm; render(); return; }
+  const op = t.closest('[data-op]'); if (op) { askOp(op.dataset.op, op.closest('.card').dataset.id); return; }
+  if (t.closest('#addExt')) { openExt(); return; }
+  const k = t.closest('[data-k]'); if (k && REP) { setField(k.dataset.k, k.dataset.v); return; }
+  const rk = t.closest('[data-rank]'); if (rk && REP) { const auto = rankOf(REP.f.want, REP.f.pay); REP.f.rank = rk.dataset.rank === auto ? '' : rk.dataset.rank; saveDraft(); renderReport(); return; }
+  if (t.closest('#repBack')) { REP = null; renderReport(); return; }
+  if (t.closest('#repNext')) { confirmReport(); return; }
+  if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const ni = t.closest('[data-ni]'); if (ni) { NUM_I = +ni.dataset.ni; renderNum(); return; }
+  const al = t.closest('[data-all]'); if (al) { NUM_ALL = al.dataset.all === '1'; NUM_I = 0; renderNum(); return; }
+  const fq = t.closest('[data-faq]'); if (fq) { faqToChat(+fq.dataset.faq); return; }
+  const rt = t.closest('[data-retry]'); if (rt) { askBot(+rt.dataset.retry); return; }
+  const row = t.closest('.card .row'); if (row) { const id = row.parentNode.dataset.id; OPEN = OPEN === id ? '' : id; renderMeet(); return; }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.dt != null) DT[t.dataset.dt] = t.value;
+  if (t.dataset.f && REP) { REP.f[t.dataset.f] = t.value; saveDraft(); recheck(); }
+  if (t.id === 'faqQ') { FAQ_Q = t.value; $('#faqList').innerHTML = faqHtml(); }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.mb != null) MB[t.dataset.mb] = t.value;
+  if (t.dataset.f && REP) { REP.f[t.dataset.f] = t.value; saveDraft(); recheck(); }
+});
+$('#scrim').onclick = closeSheet;
+$('#fab').onclick = () => { if (D) openBot(); };
+$('#reload').onclick = () => load(false);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#sheet').classList.contains('on')) closeSheet(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && D && !DEMO && !$('#sheet').classList.contains('on')) load(true); });
+
+// ---- 見本（?demo=1）：架空の名前と数字。どこにも記録しない（&admin=1 で管理者の見本） ----
+let DEMO_D = null;
+const DEMO_REQ = {};
+// 見本の時計は「今日の13時」に固定（開いた時刻で見え方が変わらないように）
+function demoNow() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 13, 0); }
+function demoData() {
+  const now = demoNow();
+  const at = (n, h, mi = 0) => stamp(new Date(now.getFullYear(), now.getMonth(), now.getDate() + n, h, mi));
+  const me = DEMO_ADMIN ? '社長' : 'MIKA';
+  const mine = DEMO_ADMIN ? 'MIKA' : 'MIKA';
+  const base = { name: '', start: '', start_text: '', member: mine, stage: 'ロードマップ面談', reminder: 'on', reminder_text: '配信中', hold_text: '', warn: '', manual_new_start: '', past: '', can_operate: '1', checked_at: '', project: '広告', kind: 'utage', insta: '', appointer: '', report: '', report_summary: '', busy: '' };
+  const row = o => { const r = Object.assign({}, base, o); r.start_text = md(r.start) + hm(r.start); if (parse(r.start) < now) r.past = r.past || (parse(r.start) < new Date(now.getTime() - 3600000) ? '1' : ''); return r; };
+  const tabi1 = { project: '旅キャリ', kind: 'tabi1', stage: '旅キャリ・一次面談', reminder: 'tabicari', reminder_text: 'UTAGE（旅キャリ側）が自動で送信', can_operate: '' };
+  const tabi2 = { project: '旅キャリ', kind: 'tabi2', stage: '旅キャリ・二次面談', reminder: 'tabicari', reminder_text: '自動の案内なし', can_operate: '' };
+  let meetings = [
+    row({ applicant_id: 'demo01', name: '佐藤 みゆき', start: at(0, 10), report: 'needed', past: '1' }),
+    row(Object.assign({ applicant_id: 'tabi1demo02', name: '高橋 はると', start: at(-1, 20), insta: 'mihon_haru_trip', appointer: '見本アポ ゆい', report: 'needed', past: '1' }, tabi1)),
+    row({ applicant_id: 'demo03', name: '田中 けんた', start: at(0, 20), reminder_text: '配信中（前日21:15・当日7:30・30分前）' }),
+    row(Object.assign({ applicant_id: 'tabi2demo04', name: 'mihon_sora_trip', start: at(1, 21), insta: 'mihon_sora_trip', appointer: '見本アポ りな' }, tabi2)),
+    row(Object.assign({ applicant_id: 'tabi1demo05', name: '伊藤 あおい', start: at(1, 19), insta: 'mihon_aoi_abroad', appointer: '見本アポ ゆい' }, tabi1)),
+    row({ applicant_id: 'ext_demo06', name: '森 りさ', start: at(3, 13), reminder: 'external', reminder_text: '自動（Zoom の案内のみ）', kind: 'external' }),
+    row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています' }),
+    row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B' }),
+    row(Object.assign({ applicant_id: 'tabi2demo09', name: 'mihon_nana_cafe', start: at(-3, 21), insta: 'mihon_nana_cafe', appointer: '見本アポ りな', past: '1', report: 'done', report_summary: '成約・区分A' }, tabi2))
+  ];
+  if (DEMO_ADMIN) meetings = meetings.concat([
+    row({ applicant_id: 'demo21', name: '加藤 ゆうき', start: at(0, 15), member: 'RYO', report: 'needed', past: '1' }),
+    row(Object.assign({ applicant_id: 'tabi1demo22', name: '吉田 まい', start: at(1, 11), member: 'NAO', insta: 'mihon_mai_walk', appointer: '見本アポ ゆい' }, tabi1)),
+    row({ applicant_id: 'demo23', name: '山田 こうき', start: at(2, 20), member: 'RYO' })
+  ]);
+  const ym = n => { const d = new Date(now.getFullYear(), now.getMonth() - n, 1); return d.getFullYear() + '-' + p2(d.getMonth() + 1); };
+  const mk = (n, done, won, A, B, C, Dd, none, ad) => ({ ym: ym(n), done, won, rate: 0, ranks: { A, B, C, D: Dd, none }, by_project: { '広告': { done: ad[0], won: ad[1] }, '旅キャリ': { done: done - ad[0], won: won - ad[1] } } });
+  const months = [mk(0, 9, 3, 3, 2, 2, 1, 1, [5, 2]), mk(1, 11, 3, 4, 3, 2, 1, 1, [7, 2]), mk(2, 8, 2, 2, 3, 1, 1, 1, [8, 2]), mk(3, 10, 3, 3, 3, 2, 1, 1, [10, 3]), mk(4, 7, 1, 1, 2, 2, 1, 1, [7, 1]), mk(5, 6, 1, 1, 2, 1, 1, 1, [6, 1])];
+  const hist = [[-1, '旅キャリ', '一次面談', '報告がまだ', ''], [-2, '広告', '', '検討中', 'B'], [-3, '旅キャリ', '二次面談', '成約', 'A'], [-5, '広告', '', '成約', 'A'], [-6, '旅キャリ', '一次面談', '二次面談決定', 'A'],
+    [-8, '広告', '', '未成約', 'C'], [-9, '広告', '', '不参加・キャンセル', ''], [-12, '旅キャリ', '一次面談', '二次面談なし', 'D'], [-14, '広告', '', '成約', 'A'], [-17, '広告', '', '未成約', 'B']]
+    .map(([n, p, s, r, k]) => ({ date: addDays(ymd(now), n), project: p, stage: s, result: r, rank: k }));
+  const cm = ym(0) + '-';
+  return {
+    ok: true, now: stamp(now), today: ymd(now),
+    user: { name: me, role: DEMO_ADMIN ? 'admin' : 'member', member: mine },
+    members: DEMO_ADMIN ? ['MIKA', 'RYO', 'NAO', 'KEN'] : ['MIKA', 'RYO', 'NAO', 'KEN'],
+    features: { report_ad: 'on', report_tabi: 'on', op_tabi: false, bot: 'on' },
+    meta: { list_updated_at: at(0, now.getHours(), Math.floor(now.getMinutes() / 10) * 10), tabi_updated_at: '', stale: '' },
+    meetings,
+    todo: [{ level: 'warn', text: 'ヒアリングシートがまだです（今日 20:00・田中 けんたさん）', applicant_id: 'demo03' },
+      { level: 'info', text: '日程が決まっていない方がいます（中村 だいきさん・リマインド停止中）', applicant_id: 'demo07' }],
+    stats: { months, history: hist, gap: [] },
+    reward: { month: ym(0), total: 34200, confirmed: 19800, pending: 14400,
+      lines: [{ contracted_on: cm + '02', paid_on: cm + '03', project: '旅キャリ', label: '', paid_amount: 330000, rate_text: '6%', reward: 19800, status: '確定' },
+        { contracted_on: cm + '05', paid_on: cm + '06', project: '旅キャリ', label: '自分で取ったアポ・他の人が商談', paid_amount: 440000, rate_text: '一律15,000円', reward: 15000, status: '確定前' }].map(l => l),
+      excluded: [{ contracted_on: cm + '08', reason: 'クーリングオフ・解除のため報酬の対象外' }], prev: { month: ym(1), total: 26400 }, note: '' },
+    links: [{ title: 'トークスクリプト（見本）', url: 'https://example.com/', note: '面談の前に読む' }, { title: '料金表（見本）', url: 'https://example.com/', note: '会社が出しているものだけを使う' },
+      { title: '申込みの手順（見本）', url: 'https://example.com/', note: '成約したらお客様に送る' }, { title: '旅キャリの面談の流れ（見本）', url: 'https://example.com/', note: '一次と二次で話すこと' }],
+    faq: [{ q: '分割払いはできますか？', a: '（見本）ここには、営業Q&A正ナレッジで確定した答えが入ります。', tag: '支払い' },
+      { q: '英語が苦手でも大丈夫ですか？', a: '（見本）ここには、営業Q&A正ナレッジで確定した答えが入ります。', tag: 'サポート' },
+      { q: 'サポートの期間はどのくらいですか？', a: '（見本）ここには、営業Q&A正ナレッジで確定した答えが入ります。', tag: 'サポート' },
+      { q: '会社員を続けながらでも始められますか？', a: '（見本）ここには、営業Q&A正ナレッジで確定した答えが入ります。', tag: '始め方' },
+      { q: '値引きを頼まれたら？', a: '（見本）担当は値引きや支払条件の約束をせず、会社へ引き継ぎます。', tag: '価格' }],
+    history: [{ id: 'q1', created_at: at(-1, 21, 5), op: 'reschedule', name: '中村 だいき', status: 'done', result_title: '日程変更を反映しました' },
+      { id: 'q2', created_at: at(-2, 20, 30), op: 'report', name: '小林 さやか', status: 'done', result_title: '報告を反映しました' }],
+    admin: DEMO_ADMIN ? {
+      table: [].concat(...[0, 1, 2].map(n => [['MIKA', '広告', 5, 2], ['MIKA', '旅キャリ', 4, 1], ['RYO', '広告', 6, 1], ['RYO', '旅キャリ', 2, 0], ['NAO', '広告', 3, 1], ['NAO', '旅キャリ', 5, 2], ['KEN', '広告', 4, 1], ['KEN', '旅キャリ', 0, 0]]
+        .map(([m, p, d, w]) => ({ project: p, member: m, ym: ym(n), done: Math.max(0, d - n), won: Math.max(0, w - (n % 2)) })))),
+      rank_rates: [{ rank: 'A', done: 14, won: 9 }, { rank: 'B', done: 12, won: 4 }, { rank: 'C', done: 9, won: 1 }, { rank: 'D', done: 8, won: 0 }],
+      unreported: meetings.filter(r => r.report === 'needed').map(r => ({ applicant_id: r.applicant_id, name: r.name, start: r.start, member: r.member, project: r.project }))
+    } : undefined
+  };
+}
+function demoWill(m, p) {
+  const out = [], tabi = m.project === '旅キャリ', s = tabi ? TABI[p.result] : AD[p.result];
+  const insta = instaKey(m.insta || p.insta);
+  if (tabi) {
+    const f = Object.assign({}, s.sheet); if (s.date) f['二次面談日時'] = p.second_date.replace(/-/g, '/') + ' ' + p.second_time;
+    out.push('共有顧客リスト：@' + insta + ' の行に ' + Object.entries(f).map(([k, v]) => '「' + k + '＝' + v + '」').join('・'));
+    out.push('Discord 旅キャリDM #アポ獲得速報：' + s.title + ' のカード（アポインターにお知らせ。金額・プランは載せません）');
+    if (s.sales) out.push('Discord セールスチーム #登録速報：' + s.title + ' のカード（担当にお知らせ）');
+    if (s.date) out.push('Googleカレンダー「旅キャリ 二次面談」：' + mdt(p.second_date + ' ' + p.second_time) + '〜 の90分の予定（' + p.second_member + ' をゲストに招待）');
+  } else if (p.next === 'あり') {
+    out.push(p.result === 'リスケ' ? '面談スケジュール：' + mdt(p.next_date + ' ' + p.next_time) + ' に日程変更（リマインドを組み直します）' : '面談スケジュール：' + mdt(p.next_date + ' ' + p.next_time) + ' に2回目の商談を登録（お客様へは Zoom の案内だけ届きます）');
+  }
+  out.push('Notion セールス振り返り：この報告を1件（結果・区分・理由・次回アクション・振り返り）');
+  out.push('Discord 営業振り返り：結果・区分・振り返りを共有');
+  return out;
+}
+function demoApi(action, body) {
+  if (!DEMO_D) DEMO_D = demoData();
+  const reqId = () => 'demo-' + Math.random().toString(36).slice(2, 9);
+  if (action === 'me') return Promise.resolve(JSON.parse(JSON.stringify(DEMO_D)));
+  if (action === 'report') {
+    const id = reqId(), r = DEMO_D.meetings.find(x => x.applicant_id === body.applicant_id);
+    if (r) r.report = 'sending';
+    DEMO_REQ[id] = { t: Date.now(), kind: 'report', aid: body.applicant_id, p: body.report };
+    const m = r || { project: body.report.project, insta: body.report.insta };
+    return Promise.resolve({ ok: true, id, will: demoWill(m, body.report) });
+  }
+  if (action === 'op') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'op', op: body.op, aid: body.applicant_id, arg: body.arg }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'ask') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'ask', q: body.q }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'request') {
+    const q = DEMO_REQ[body.id]; if (!q) return Promise.resolve({ ok: false, error: 'state' });
+    if (Date.now() - q.t < 2200) return Promise.resolve({ ok: true, request: { id: body.id, status: 'running' } });
+    if (q.kind === 'report') {
+      const r = DEMO_D.meetings.find(x => x.applicant_id === q.aid);
+      if (r) { r.report = 'done'; r.report_summary = q.p.result + (q.p.rank ? '・区分' + q.p.rank : ''); }
+      return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）反映しました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
+    }
+    if (q.kind === 'op') {
+      const r = DEMO_D.meetings.find(x => x.applicant_id === q.aid);
+      if (r && q.op === 'hold') { r.reminder = 'off'; r.reminder_text = '停止中'; }
+      if (r && q.op === 'resume') { r.reminder = 'on'; r.reminder_text = '配信中'; r.hold_text = ''; }
+      return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）' + ((OPS[q.op] || ['UTAGEに無い予約を登録'])[0]) + 'を受け付けました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
+    }
+    if (/失敗/.test(q.q)) return Promise.resolve({ ok: true, request: { id: body.id, status: 'error', result_title: '答えを作れませんでした', result_lines: '（見本）失敗したときの表示です。' } });
+    return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', answer: '（見本の答え）本番では、営業Q&A正ナレッジとあなたの案件をもとに答えます。\n値引きや支払条件の個別のご相談は、会社へ引き継いでください。', sources: ['営業Q&A正ナレッジ（見本）'] } });
+  }
+  return Promise.resolve({ ok: false, error: 'action' });
+}
+// ---- はじまり ----
+if (!DEMO && !KEY) gate('専用URLで開いてください', '会社から届いた「#k=…」付きのURLで開くと使えます。このURLはあなた専用です。ほかの人に渡さないでください。');
+else if (!DEMO && !API) gate('準備中です', 'セールスGOはいま準備中です。使えるようになったら、会社からお知らせします。');
+else {
+  const first = DEMO ? (params.get('tab') || 'today') : ls.get('tab', 'today');
+  TAB = ['today', 'meet', 'report', 'num', 'docs'].includes(first) ? first : 'today';
+  load().then(() => {
+    if (!D) return;
+    showTab(TAB);
+    if (DEMO && params.get('open')) { OPEN = params.get('open'); renderMeet(); }
+    if (DEMO && params.get('report')) startReport(params.get('report'));
+    if (DEMO && params.get('bot') === '1') openBot();
+  });
+}
+</script>
+</body>
+</html>
