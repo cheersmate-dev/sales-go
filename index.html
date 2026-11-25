@@ -596,7 +596,7 @@ function card(r) {
       if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
     }
-    if ((D.features || {}).contract === 'on') h += '<div class="act"><button class="go" type="button" data-contract="1"' + dis + '>契約書を送る（Dropbox Sign）</button></div>';
+    h += '<div class="act"><a class="go" style="display:block;text-align:center;text-decoration:none" href="https://app.hellosign.com/account/logIn" target="_blank" rel="noopener noreferrer">契約書を送る（Dropbox Sign を開く）</a><div class="note">ログイン情報は Discord の「契約書送付のDropboxサイン」にあります。件名は「【氏名 様】◯◯プラン契約書（NNN万円）」、CC は info@cheersmate11.com。</div></div>';
     if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act"><h3>LINEで送る</h3><div class="paygrid">' + [{ title: '担当者のLINE' }].concat(D.tpls).map(t => '<button type="button" class="paybtn" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(t.title) + '</button>').join('') + '</div><div class="note">押すと、送る中身を確かめる画面が出ます。</div></div>';
     h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
       '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
