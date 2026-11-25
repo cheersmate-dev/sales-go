@@ -596,6 +596,7 @@ function card(r) {
       if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
     }
+    if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act"><h3>LINEで送る</h3><div class="paygrid">' + [{ title: '担当者のLINE' }].concat(D.tpls).map(t => '<button type="button" class="paybtn" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(t.title) + '</button>').join('') + '</div><div class="note">押すと、送る中身を確かめる画面が出ます。</div></div>';
     h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
       '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
     const ms = isAdmin() ? (D.members || []) : (D.members || []);
@@ -645,6 +646,24 @@ async function sendOp(op, id, arg) {
     if (q.status === 'timeout') WATCH[id] = { cls: 'ng', text: TIMEOUT_TEXT };
     else WATCH[id] = { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
     load(true);
+  });
+}
+function askLine(id, title) {
+  const r = meetingById(id); if (!r) return;
+  const t = (D.tpls || []).find(x => x.title === title) || { title, preview: title === '担当者のLINE' ? 'あなた（' + (r.member || '') + '）のLINEの友だち追加の案内' : '' };
+  openSheet('<div class="sh-top"><h3>LINEで送る</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="note" style="margin:0 0 6px">' + esc(r.name) + 'さんのLINEへ、UTAGEのテンプレート「' + esc(t.title) + '」を送ります。</div>' +
+    '<div class="box info" style="white-space:pre-wrap;font-size:13px">' + esc(t.preview || '（中身はUTAGEのテンプレートのとおりです）') + '</div>' +
+    '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="lineYes">送る</button></div>');
+  $('#lineYes').onclick = () => { closeSheet(); sendLine(id, title); };
+}
+async function sendLine(id, tpl) {
+  WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどで送ります…' }; render();
+  const j = await api('line', { client_id: cid('l'), applicant_id: id, tpl });
+  if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  poll(j.id, q => {
+    WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    render();
   });
 }
 async function sendMute(id, on) {
@@ -1099,6 +1118,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repBack')) { REP = null; renderReport(); return; }
   if (t.closest('#repNext')) { confirmReport(); return; }
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
   const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
   const stb = t.closest('[data-st]'); if (stb) { openStatus(+stb.dataset.st); return; }
