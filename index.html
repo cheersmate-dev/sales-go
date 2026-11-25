@@ -456,8 +456,9 @@ function ymd(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2
 function stamp(d) { return ymd(d) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
 function addDays(s, n) { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
 function md(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '月' + d.getDate() + '日（' + WD[d.getDay()] + '）' : ''; }
-function mdt(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）' + d.getHours() + ':' + p2(d.getMinutes()) : ''; }
-function hm(s) { const d = parse(s); if (!d) return ''; if (!d.getHours() && !d.getMinutes()) return '時刻未入力'; return d.getHours() + ':' + p2(d.getMinutes()); }   // 0:00 ちょうどは二次面談フォームの時刻空欄（面談スケジュールと同じ扱い）
+function mdt(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）' + (noTime(d) ? ' 時刻未定' : d.getHours() + ':' + p2(d.getMinutes())) : ''; }
+function noTime(d) { return d && !d.getHours() && !d.getMinutes(); }   // 0:00 ちょうど＝二次面談フォームで時刻が空のまま（面談スケジュールの決まり）
+function hm(s) { const d = parse(s); if (!d) return ''; if (noTime(d)) return '--:--'; return d.getHours() + ':' + p2(d.getMinutes()); }
 function ymLabel(ym) { const m = String(ym).match(/^(\d{4})-(\d{2})/); return m ? (+m[2]) + '月' : ym; }
 const yen = n => Number(n || 0).toLocaleString('ja-JP');
 function nowD() { return parse(D && D.now) || new Date(); }
@@ -500,7 +501,7 @@ function mini(r, need) {
   const right = need ? '報告する' : (r.report === 'needed' ? '報告する' : '開く');
   const act = need || r.report === 'needed' ? 'data-go-report="' + esc(r.applicant_id) + '"' : 'data-go-meet="' + esc(r.applicant_id) + '"';
   return '<button type="button" class="mc' + (need ? ' need' : '') + '" ' + act + '>' +
-    '<span class="t">' + (need ? '<small>' + esc(md(r.start)) + '</small>' : '') + esc(hm(r.start)) + '</span>' +
+    '<span class="t">' + (need ? '<small>' + esc(md(r.start)) + '</small>' : '') + esc(hm(r.start)) + (noTime(parse(r.start)) ? '<small>時刻未定</small>' : '') + '</span>' +
     '<span><span class="nm">' + custName(r) + '</span><span class="sb" style="display:block">' + tagOf(r) + ' ' + esc(r.stage) + (isAdmin() ? '・担当 ' + esc(r.member || '未確認') : '') + '</span></span>' +
     '<span class="go-r">' + right + '</span></button>';
 }
