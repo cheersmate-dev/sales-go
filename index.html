@@ -521,7 +521,7 @@ function renderToday() {
   const mn = monthNow(), rw = D.reward || {};
   if (mn) h += '<button type="button" class="band" data-tab="num"><span class="h"><span>' + esc(ymLabel(mn.ym)) + 'の自分の数字</span><span>くわしく見る</span></span>' +
     '<span class="g"><div>実施<b>' + mn.done + '<span>件</span></b></div><div>成約<b>' + mn.won + '<span>件</span></b></div><div>成約率<b>' + rate(mn) + '<span>%</span></b></div>' +
-    '<div>報酬<b>' + yen(rw.total) + '<span>円</span></b></div></span></button>';
+    '<div>' + esc(rw.label || '報酬') + '<b>' + yen(rw.total) + '<span>円</span></b></div></span></button>';
   $('#v-today').innerHTML = h;
 }
 function rate(m) { return m && m.done ? (Math.round(m.won / m.done * 1000) / 10) : 0; }
@@ -1006,8 +1006,9 @@ function mdShort(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + 
 function rewardHtml() {
   const rw = D.reward || {}; if (!rw.month) return '';
   const lines = rw.lines || [];
-  let h = '<div class="sec-h"><h2>報酬</h2><span class="hint">入金があった月で数えます</span></div>' +
-    '<div class="pay"><div class="h">' + esc(ymLabel(rw.month)) + 'の報酬（入金ベース）</div><div class="big">' + yen(rw.total) + '<span>円</span></div>' +
+  const lb = rw.label || '報酬';   // KAZUKI は「イーハーバーへのお支払い」（2026-11-25 SHUHEY）
+  let h = '<div class="sec-h"><h2>' + esc(lb) + '</h2><span class="hint">入金があった月で数えます</span></div>' +
+    '<div class="pay"><div class="h">' + esc(ymLabel(rw.month)) + 'の' + esc(lb) + '（入金ベース）</div><div class="big">' + yen(rw.total) + '<span>円</span></div>' +
     '<div class="sm">うち確定 <b>' + yen(rw.confirmed) + '円</b>・確定前 <b>' + yen(rw.pending) + '円</b></div>' +
     (rw.prev ? '<div class="sm">先月（' + esc(ymLabel(rw.prev.month)) + '）は <b>' + yen(rw.prev.total) + '円</b></div>' : '') + '</div>';
   h += '<div class="sec-h" style="margin-top:12px"><h2 style="font-size:14px">内訳</h2><span class="hint">成約ごと・入金ごと</span></div>' + (lines.length ? '<div class="tw">' +
