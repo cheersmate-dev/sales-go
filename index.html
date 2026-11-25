@@ -888,9 +888,32 @@ function renderNum() {
   if (st.gap && st.gap.length) h += '<div class="box y" style="margin-top:10px">報告と契約書・入金の記録で食い違いがあります<ul class="errs" style="margin:4px 0 0">' + st.gap.map(g => '<li>' + esc(g) + '</li>').join('') + '</ul></div>';
   h += rewardHtml();
   const hist = st.history || [];
-  h += '<div class="sec-h"><h2>これまでの面談</h2><span class="hint">新しい順</span></div>' + (hist.length ? '<div class="tw"><table class="t"><tr><th>日付</th><th class="l">案件</th><th class="l">結果</th><th>区分</th></tr>' +
-    hist.map(x => '<tr><td class="num">' + esc(mdShort(x.date)) + '</td><td class="l">' + esc(x.project) + (x.stage ? '<small>' + esc(x.stage) + '</small>' : '') + '</td><td class="l">' + esc(x.result) + '</td><td class="num">' + esc(x.rank || '') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">まだありません</div>');
+  h += '<div class="sec-h"><h2>これまでの面談</h2><span class="hint">新しい順・「更新」で今の状況を報告</span></div>' + (hist.length ? '<div class="tw"><table class="t"><tr><th>日付</th><th class="l">お客様</th><th class="l">結果</th><th></th></tr>' +
+    hist.map((x, i) => '<tr><td class="num">' + esc(mdShort(x.date)) + '</td><td class="l">' + esc(x.name || '') + '<small>' + esc(x.project) + (x.stage ? '・' + esc(x.stage) : '') + '</small></td><td class="l">' + esc(x.result) +
+      (x.rep ? '<small>担当の報告：' + esc(x.rep) + (x.rep_at ? '（' + esc(mdShort(x.rep_at)) + '）' : '') + '</small>' : '') + '</td><td class="num">' +
+      (x.pid ? '<button class="go second" type="button" data-st="' + i + '" style="padding:4px 10px;font-size:12.5px;min-height:0;width:auto">更新</button>' : '') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">まだありません</div>');
   $('#v-num').innerHTML = h;
+}
+// ---- 今の状況を更新（2026-11-25）：顧客マスターに担当者の報告を入れる。成約は速報（契約書と入金で正式な成約） ----
+const ST_OPTS = [['成約（報告）', '成約した（契約・入金の手続き中も含む）。速報として出し、契約書と入金が確認できたら正式な成約になります'],
+  ['失注', '今回は申し込まない、と決まった'], ['保留', '検討中。まだ決まっていない'], ['キャンセル', '面談そのものが無くなった']];
+let ST = null;
+function openStatus(i) {
+  const x = ((D.stats || {}).history || [])[i]; if (!x || !x.pid) return;
+  ST = { x, res: '' };
+  openSheet('<div class="sh-top"><h3>今の状況を更新</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="note" style="margin:0 0 6px">' + esc(x.name || '') + 'さん（' + esc(mdShort(x.date)) + '・' + esc(x.project) + '）　いまの記録：' + esc(x.result) + '</div>' +
+    ST_OPTS.map(o => '<button type="button" class="go second" data-stv="' + esc(o[0]) + '" style="display:block;width:100%;text-align:left;margin:6px 0;white-space:normal"><b>' + esc(o[0]) + '</b><br><small>' + esc(o[1]) + '</small></button>').join('') +
+    '<label class="l" for="stNote">ひとことメモ（任意・個別のやり取りでどうなったか）</label><input type="text" id="stNote" maxlength="300" autocomplete="off">' +
+    '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="stYes" disabled>送る</button></div>');
+}
+async function sendStatus() {
+  if (!ST || !ST.res) return;
+  const x = ST.x, res = ST.res, note = ($('#stNote') || {}).value || '';
+  closeSheet(); toast('送りました。反映まで1分ほどかかります');
+  const j = await api('status', { client_id: cid('s'), pid: x.pid, result: res, note });
+  if (!j.ok) { toast(errMsg(j)); return; }
+  poll(j.id, q => { toast(q.status === 'timeout' ? TIMEOUT_TEXT : ((q.result_title || '') + (q.result_lines ? '：' + q.result_lines.split('\n')[0] : ''))); x.rep = res; load(true); });
 }
 function mdShort(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() : ''; }
 function rewardHtml() {
@@ -1044,6 +1067,9 @@ document.addEventListener('click', e => {
   if (t.closest('#repBack')) { REP = null; renderReport(); return; }
   if (t.closest('#repNext')) { confirmReport(); return; }
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const stb = t.closest('[data-st]'); if (stb) { openStatus(+stb.dataset.st); return; }
+  const stv = t.closest('[data-stv]'); if (stv && ST) { ST.res = stv.dataset.stv; document.querySelectorAll('[data-stv]').forEach(b => b.classList.toggle('second', b !== stv)); $('#stYes').disabled = false; return; }
+  if (t.closest('#stYes')) { sendStatus(); return; }
   const ni = t.closest('[data-ni]'); if (ni) { NUM_I = +ni.dataset.ni; renderNum(); return; }
   const al = t.closest('[data-all]'); if (al) { NUM_ALL = al.dataset.all === '1'; NUM_I = 0; renderNum(); return; }
   const fq = t.closest('[data-faq]'); if (fq) { faqToChat(+fq.dataset.faq); return; }
@@ -1164,6 +1190,7 @@ function demoApi(action, body) {
   }
   if (action === 'op') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'op', op: body.op, aid: body.applicant_id, arg: body.arg }; return Promise.resolve({ ok: true, id }); }
   if (action === 'ask') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'ask', q: body.q }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'status') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'status' }; return Promise.resolve({ ok: true, id }); }
   if (action === 'request') {
     const q = DEMO_REQ[body.id]; if (!q) return Promise.resolve({ ok: false, error: 'state' });
     if (Date.now() - q.t < 2200) return Promise.resolve({ ok: true, request: { id: body.id, status: 'running' } });
@@ -1178,6 +1205,7 @@ function demoApi(action, body) {
       if (r && q.op === 'resume') { r.reminder = 'on'; r.reminder_text = '配信中'; r.hold_text = ''; }
       return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）' + ((OPS[q.op] || ['UTAGEに無い予約を登録'])[0]) + 'を受け付けました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
     }
+    if (q.kind === 'status') return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）反映しました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
     if (/失敗/.test(q.q)) return Promise.resolve({ ok: true, request: { id: body.id, status: 'error', result_title: '答えを作れませんでした', result_lines: '（見本）失敗したときの表示です。' } });
     return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', answer: '（見本の答え）本番では、営業Q&A正ナレッジとあなたの案件をもとに答えます。\n値引きや支払条件の個別のご相談は、会社へ引き継いでください。', sources: ['営業Q&A正ナレッジ（見本）'] } });
   }
