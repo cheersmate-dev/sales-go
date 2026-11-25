@@ -596,6 +596,7 @@ function card(r) {
       if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
     }
+    if ((D.features || {}).contract === 'on') h += '<div class="act"><button class="go" type="button" data-contract="1"' + dis + '>契約書を送る（Dropbox Sign）</button></div>';
     if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act"><h3>LINEで送る</h3><div class="paygrid">' + [{ title: '担当者のLINE' }].concat(D.tpls).map(t => '<button type="button" class="paybtn" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(t.title) + '</button>').join('') + '</div><div class="note">押すと、送る中身を確かめる画面が出ます。</div></div>';
     h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
       '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
@@ -647,6 +648,31 @@ async function sendOp(op, id, arg) {
     else WATCH[id] = { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
     load(true);
   });
+}
+const CT_PLANS = { Pro: ['195', '185'], Standard: ['165', '155'], Light: ['125', '115'] };
+function askContract(id) {
+  const r = meetingById(id); if (!r) return;
+  const opt = Object.keys(CT_PLANS).map(p => CT_PLANS[p].map((a, i) => '<option value="' + p + '_' + a + '">' + p + ' ' + a + '万円' + (i ? '（3日以内に一括）' : '') + '</option>').join('')).join('');
+  openSheet('<div class="sh-top"><h3>契約書を送る</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="note" style="margin:0 0 6px">Dropbox Sign で契約書を送ります。CC は info@cheersmate11.com に自動で入ります。</div>' +
+    '<label class="l" for="ctPlan">プランと金額</label><select id="ctPlan"><option value="">選んでください</option>' + opt + '</select>' +
+    '<label class="l" for="ctName">お名前（契約書に載る表記）</label><input type="text" id="ctName" maxlength="40" value="' + esc((r.name || '').replace(/\s+/g, ' ')) + '">' +
+    '<label class="l" for="ctMail">お客様のメールアドレス</label><input type="email" id="ctMail" maxlength="120" autocomplete="off">' +
+    '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="ctNext">確認へ</button></div>');
+  $('#ctNext').onclick = () => {
+    const pa = ($('#ctPlan').value || '').split('_'), name = $('#ctName').value.trim(), mail = $('#ctMail').value.trim();
+    if (pa.length < 2 || !name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { toast('プラン・お名前・メールを入れてください'); return; }
+    const title = '【' + name + ' 様】グローバルフリーランス' + pa[0] + 'プラン契約書（' + pa[1] + '万円）';
+    openSheet('<h3>この内容で送りますか？</h3><ul class="items"><li>' + esc(title) + '</li><li>宛先：' + esc(mail) + '</li><li>CC：info@cheersmate11.com</li></ul>' +
+      '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="ctYes">送る</button></div>');
+    $('#ctYes').onclick = () => { closeSheet(); sendContract(id, { plan: pa[0], amount: pa[1], name, email: mail }); };
+  };
+}
+async function sendContract(id, d) {
+  WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどで送ります…' }; render();
+  const j = await api('contract', Object.assign({ client_id: cid('c'), applicant_id: id }, d));
+  if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  poll(j.id, q => { WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') }; render(); });
 }
 function askLine(id, title) {
   const r = meetingById(id); if (!r) return;
@@ -1118,6 +1144,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repBack')) { REP = null; renderReport(); return; }
   if (t.closest('#repNext')) { confirmReport(); return; }
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const ct = t.closest('[data-contract]'); if (ct) { askContract(ct.closest('.card').dataset.id); return; }
   const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
   const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
