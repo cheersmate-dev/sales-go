@@ -596,6 +596,8 @@ function card(r) {
       if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
     }
+    h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
+      '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
     const ms = isAdmin() ? (D.members || []) : (D.members || []);
     h += '<div class="act"><h3>担当を変えるとき</h3><label class="l">新しい担当</label><select data-mb="' + esc(id) + '"><option value="">選んでください</option>' +
       ms.map(x => '<option' + (MB[id] === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
@@ -642,6 +644,15 @@ async function sendOp(op, id, arg) {
   poll(j.id, q => {
     if (q.status === 'timeout') WATCH[id] = { cls: 'ng', text: TIMEOUT_TEXT };
     else WATCH[id] = { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    load(true);
+  });
+}
+async function sendMute(id, on) {
+  WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどで切り替わります…' }; render();
+  const j = await api('mute', { client_id: cid('m'), applicant_id: id, on });
+  if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  poll(j.id, q => {
+    WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
     load(true);
   });
 }
@@ -1088,6 +1099,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repBack')) { REP = null; renderReport(); return; }
   if (t.closest('#repNext')) { confirmReport(); return; }
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
+  const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
   const stb = t.closest('[data-st]'); if (stb) { openStatus(+stb.dataset.st); return; }
   const stv = t.closest('[data-stv]'); if (stv && ST) { ST.res = stv.dataset.stv; document.querySelectorAll('[data-stv]').forEach(b => b.classList.toggle('second', b !== stv)); $('#stYes').disabled = false; return; }
