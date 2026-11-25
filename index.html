@@ -480,7 +480,12 @@ function render() {
   if (m.stale) t += '／' + m.stale;
   $('#meta').textContent = t;
   $('#who').hidden = !isAdmin();
-  if (isAdmin()) $('#who').textContent = '管理者のリンクです。全員（' + (D.members || []).join('・') + '）の面談と数字が見えます。押した操作は管理者として記録されます。担当者には渡さないでください。';
+  if (isAdmin()) {   // 担当者を選ぶと、その人が見ている画面に切り替わる（2026-11-25 SHUHEY）
+    const v = D.view || '';
+    $('#who').innerHTML = (v ? '<b>' + esc(v) + ' さんが見ている画面</b>を表示中です（数字・報酬・要対応・面談はその人の分）。押した操作は管理者として記録されます。'
+      : '管理者のリンクです。全員（' + esc((D.members || []).join('・')) + '）の面談と数字が見えます。担当者には渡さないでください。') +
+      '<div class="chips" style="margin-top:8px">' + ['', ...(D.members || [])].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) + 'の画面' : '管理者（全員）') + '</button>').join('') + '</div>';
+  }
   $('#demoBar').hidden = !DEMO;
   renderToday(); renderMeet(); renderReport(); renderNum(); renderDocs();
   const need = rowsVis().filter(r => r.report === 'needed').length;
@@ -954,7 +959,7 @@ function setField(k, v) {
 function renderNum() {
   const st = D.stats || {}, months = st.months || [];
   let h = '';
-  if (isAdmin()) {
+  if (isAdmin() && !D.view) {
     h += '<div class="chips"><button type="button" data-all="1" class="' + (NUM_ALL ? 'on' : '') + '">全員の表</button><button type="button" data-all="0" class="' + (!NUM_ALL ? 'on' : '') + '">自分の数字</button></div>';
     if (NUM_ALL) { $('#v-num').innerHTML = h + adminHtml(); return; }
   }
@@ -1165,7 +1170,7 @@ document.addEventListener('click', e => {
     return;
   }
   const fp = t.closest('[data-fp]'); if (fp) { FP = fp.dataset.fp; render(); return; }
-  const fm = t.closest('[data-fm]'); if (fm) { FM = fm.dataset.fm; render(); return; }
+  const fm = t.closest('[data-fm]'); if (fm) { FM = fm.dataset.fm; NUM_ALL = !FM; render(); load(); return; }
   const op = t.closest('[data-op]'); if (op) { askOp(op.dataset.op, op.closest('.card').dataset.id); return; }
   if (t.closest('#addExt')) { openExt(); return; }
   const k = t.closest('[data-k]'); if (k && REP) { setField(k.dataset.k, k.dataset.v); return; }
