@@ -518,6 +518,7 @@ function renderToday() {
   let h = '<div class="hero"><h2>' + greet() + '、' + esc(name) + 'さん</h2><div class="d">' + esc(md(D.today)) + '</div>' +
     '<div class="nums"><div><small>今日の面談</small><b>' + tRows.length + '</b><span>件</span></div><div><small>明日の面談</small><b>' + mRows.length + '</b><span>件</span></div>' +
     '<div><small>報告がまだ</small><b>' + need.length + '</b><span>件</span></div></div></div>';
+  h += reassignHtml();   // 振り替えのお願い・判断待ち（2026-11-26）
   h += '<div class="sec-h"><h2>今日の面談</h2><span class="hint">押すと面談の操作へ</span></div>' +
     (tRows.length ? tRows.map(r => mini(r)).join('') : '<div class="empty">今日の面談はありません</div>');
   h += '<div class="sec-h"><h2>明日の面談</h2></div>' + (mRows.length ? mRows.map(r => mini(r)).join('') : '<div class="empty">明日の面談はありません</div>');
@@ -532,6 +533,38 @@ function renderToday() {
   $('#v-today').innerHTML = h;
 }
 function rate(m) { return m && m.done ? (Math.round(m.won / m.done * 1000) / 10) : 0; }
+// ---- 振り替え：無職・パートの面談を SAKI・YURIE へ（2026-11-26 SHUHEY）。判定は Mac mini の受付役（早い者勝ち・押した順） ----
+function raWatch(id) { const w = WATCH['ra_' + id]; return w ? '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>' : ''; }
+function raDis(id) { const w = WATCH['ra_' + id]; return w && w.cls === 'wait' ? ' disabled' : ''; }
+function reassignHtml() {
+  const ra = (D && D.reassign) || {}, me = D.view || (D.user && D.user.member) || '', all = isAdmin() && !D.view;
+  const offers = (ra.offers || []).filter(o => (o.candidates || []).includes(me));
+  const decide = (ra.decide || []).filter(o => o.origin === me || all);
+  const sheet = o => o.summary ? '<details style="margin-top:6px"><summary class="note">ヒアリングシートを見る</summary><div class="note" style="white-space:pre-wrap">' + esc(o.summary) + '</div></details>' : '';
+  let h = '';
+  if (offers.length) h += '<div class="sec-h"><h2>振り替えのお願い</h2><span class="hint">早い者勝ち</span></div>' + offers.map(o =>
+    '<div class="box y" style="margin-bottom:10px"><b>' + esc(o.name || '') + ' さん・' + esc(mdt(o.start)) + '</b>' +
+    '<div class="note">いまの担当 ' + esc(honor(o.origin)) + '・働き方「' + esc(o.job) + '」・締切 ' + esc(mdt(o.deadline)) + '（過ぎたら ' + esc(honor(o.origin)) + ' がそのまま担当）</div>' +
+    sheet(o) + raWatch(o.applicant_id) +
+    '<button class="go" type="button" style="margin-top:8px" data-ra="accept" data-raid="' + esc(o.applicant_id) + '"' + raDis(o.applicant_id) + '>引き受ける</button></div>').join('');
+  if (decide.length) h += '<div class="sec-h"><h2>振り替え先が見つからなかった面談</h2></div>' + decide.map(o =>
+    '<div class="box warn" style="margin-bottom:10px"><b>' + esc(o.name || '') + ' さん・' + esc(mdt(o.start)) + (all ? '・担当 ' + esc(honor(o.origin)) : '') + '</b>' +
+    '<div class="note">' + esc(o.reason || '') + '。働き方「' + esc(o.job) + '」のお客様です。シートを見て選んでください。「お断りする」を選んでも、お客様へはシステムから何も送りません（連絡は担当から）。</div>' +
+    sheet(o) + raWatch(o.applicant_id) +
+    '<div class="row2" style="margin-top:8px"><button class="go" type="button" data-ra="keep" data-raid="' + esc(o.applicant_id) + '"' + raDis(o.applicant_id) + '>実施する</button>' +
+    '<button class="go second" type="button" data-ra="decline" data-raid="' + esc(o.applicant_id) + '"' + raDis(o.applicant_id) + '>お断りする</button></div></div>').join('');
+  return h;
+}
+async function sendReassign(id, what) {
+  if (what === 'decline' && !window.confirm('この面談を「お断り」にします。お客様への連絡はご自身でお願いします（システムからは送りません）。よろしいですか？')) return;
+  WATCH['ra_' + id] = { cls: 'wait', text: '受け付けました。1分ほどで結果が出ます…' }; render();
+  const j = await api('reassign', { client_id: cid('ra'), applicant_id: id, do: what });
+  if (!j.ok) { WATCH['ra_' + id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  poll(j.id, q => {
+    WATCH['ra_' + id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    load(true);
+  });
+}
 
 // ---- 面談 ----
 function renderMeet() {
@@ -1268,6 +1301,7 @@ document.addEventListener('click', e => {
   const ct = t.closest('[data-contract]'); if (ct) { askContract(ct.closest('.card').dataset.id); return; }
   const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
   const fr = t.closest('[data-free]'); if (fr) { openFree(fr.dataset.free); return; }   // 全員の空きから選ぶ（2026-11-26）
+  const ra = t.closest('[data-ra]'); if (ra) { sendReassign(ra.dataset.raid, ra.dataset.ra); return; }   // 振り替え（2026-11-26）
   const cx = t.closest('[data-cancel]'); if (cx) { askCancel(cx.closest('.card').dataset.id); return; }
   const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
