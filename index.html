@@ -404,6 +404,7 @@ const OPS = {
   resume: ['リマインドを再開する', ['リマインドを再開します', '配信の予定が積まれたかを確かめます', 'お客様へは何も送りません']],
   revert: ['手動の日程変更を取り消す', ['リマインドを UTAGE の予約の日時に戻します', '手動で変えた記録を消します', 'お客様へは何も送りません']],
   member: ['担当を変える', []],
+  resched_wait: ['日程変更待ちにする（報告しない）', ['この面談を「📅 日程変更待ち」にして、報告を求めないようにします', 'リマインドを止めます', '期限は今から3日。過ぎても決まらなければ Chatwork でお知らせします', 'お客様が変更リンクで選び直したら自動で外れます。日時を決めたら「手動で日程変更した」を押してください', 'お客様へは何も送りません']],
   ext_move: ['登録の日時を変える', ['一覧・顧客マスター・カレンダーの日時を新しい日時に直します', 'Zoom の案内を新しい日時に組み直します', '日時が変わったお知らせは送りません（担当から伝えてください）']],
   ext_cancel: ['登録を取り消す', ['一覧から外します', 'カレンダーの予定は消さずに【キャンセル】と表示します', 'まだ届いていない自動の案内を止めます', '取り消しのお知らせは送りません（担当から伝えてください）']]
 };
@@ -596,9 +597,12 @@ function card(r) {
   const id = r.applicant_id, w = WATCH[id], busy = !!r.busy || (w && w.cls === 'wait');
   let b = tagOf(r).replace('class="tag', 'class="badge tag');
   if (r.reminder_text) b += '<span class="badge ' + (r.reminder === 'on' ? 'on' : r.reminder === 'off' ? 'off' : '') + '">リマインド：' + esc(r.reminder_text) + '</span>';
-  if (r.hold_text) b += '<span class="badge off">' + esc(r.hold_text) + '</span>';
+  if (r.resched_state) b += reschedBadge(r);   // 日程変更待ち（2026-11-26 SHUHEY）
+  else if (r.hold_text) b += '<span class="badge off">' + esc(r.hold_text) + '</span>';
+  b += hearingBadge(r);
   if (r.warn) b += '<span class="badge warn">' + esc(r.warn) + '</span>';
   if (r.report === 'needed') b += '<span class="badge warn">報告がまだです</span>';
+  if (r.report === 'resched') b += '<span class="badge">日程変更待ちのため報告はいりません</span>';
   if (r.report === 'sending') b += '<span class="badge">報告を処理中</span>';
   if (r.report === 'done') b += '<span class="badge on">報告済み' + (r.report_summary ? '：' + esc(r.report_summary) : '') + '</span>';
   if (r.plan) b += '<span class="badge on">🗒 作戦会議あり</span>';
@@ -626,7 +630,8 @@ function card(r) {
     if (r.reminder !== 'member') {
       h += '<div class="act"><h3>面談の日時を手で変えたとき</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
         '<button class="go" type="button" data-op="reschedule"' + dis + '>手動で日程変更した</button>' +
-        '<div class="note">新しい日時を入れて押すと、いまの日程のリマインドを止めて、新しい日時で組み直します。</div></div>';
+        '<button class="go second" type="button" data-free="' + esc(id) + '"' + dis + ' style="margin-top:8px">全員の空きから選ぶ</button>' +
+        '<div class="note">新しい日時を入れて押すと、いまの日程のリマインドを止めて、新しい日時で組み直します。「全員の空きから選ぶ」は、その時間に空いている担当を順番どおりに出し、日程と担当を1回で変えます。</div></div>';
       if (r.reminder === 'on') h += '<div class="act"><button class="go second" type="button" data-op="hold"' + dis + '>リマインドだけ止める</button></div>';
       if (r.reminder !== 'on') h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
@@ -643,11 +648,70 @@ function card(r) {
       '<button class="go" type="button" data-op="member"' + dis + '>担当を変える</button>' +
       '<div class="note">お客様の LINE へ「担当変更のお知らせ」が自動で届き、Zoom の案内も新しい担当のものに切り替わります。</div></div>';
   }
+  if (canReschedWait(r)) h += '<div class="act"><button class="go second" type="button" data-op="resched_wait"' + dis + '>日程変更待ちにする（報告しない）</button>' +
+    '<div class="note">お客様と日程を決め直しているときに。報告を求めず「📅 日程変更待ち」と出します（期限は3日）。お客様には何も送りません。</div></div>';
   if (w) h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
   else if (r.busy) h += '<div class="result wait">処理中です…</div>';
   return h + '</div></div>';
 }
 const DT = {}, MB = {};   // 入力途中の日時・担当（描き直しても消さない）
+// ---- 日程変更待ち・ヒアリング期限・全員の空き（2026-11-26 SHUHEY） ----
+function leftText(s) {
+  const d = parse(s); if (!d) return '';
+  const sec = (d - nowD()) / 1000; if (sec <= 0) return '期限切れ';
+  const dd = Math.floor(sec / 86400), hh = Math.floor(sec % 86400 / 3600), mm = Math.floor(sec % 3600 / 60);
+  return dd ? 'あと' + dd + '日' + hh + '時間' : hh ? 'あと' + hh + '時間' : 'あと' + Math.max(mm, 1) + '分';
+}
+function reschedBadge(r) {
+  const left = leftText(r.resched_until);
+  if (r.resched_state === 'expired' || left === '期限切れ') return '<span class="badge warn">📅 日程変更待ち・期限切れ → 本人に連絡するか枠を空けるか決めてください</span>';
+  return '<span class="badge off">📅 日程変更待ち・期限まで' + esc(left) + '（' + esc(mdt(r.resched_until)) + '）</span>';
+}
+function hearingBadge(r) {
+  const k = r.hearing_kind || ''; if (!k || parse(r.start) <= nowD()) return '';
+  if (k === 'submitted') return '<span class="badge on">📝 ヒアリング提出済み</span>';
+  if (k === 'none') return '<span class="badge">📝 直前予約のためヒアリング期限なし</span>';
+  if (k === 'first' || k === 'final') {
+    const left = leftText(r.hearing_until);
+    return '<span class="badge ' + (left === '期限切れ' ? 'warn' : 'off') + '">📝 ヒアリング提出期限まで' + esc(left) + (k === 'final' ? '（延長済み・最終）' : '') + '（' + esc(mdt(r.hearing_until)) + '）</span>';
+  }
+  if (k === 'manual') return '<span class="badge warn">📝 ヒアリング未提出・人が確認</span>';
+  return '';
+}
+function canReschedWait(r) {
+  return r.project !== '旅キャリ' && r.kind === 'utage' && r.reminder !== 'member' && r.reminder !== 'external' && r.can_operate === '1' &&
+    !r.resched_state && !r.manual_new_start && r.report !== 'done' && r.report !== 'sending';
+}
+function honor(m) { return m === 'YUSUKE' ? 'YUSUKE先生' : m; }
+function freeMembers(at) {   // その時刻に空いている担当（前15分＋面談2時間＋後30分が、ほかの面談と重ならない）
+  const t = parse(at), busy = (D && D.busy) || {};
+  return ((D && D.priority) || [['KAZUKI', 'YUSUKE', 'HIROE'], ['SAKI', 'YURIE'], ['SHUHEY']]).map(g => g.map(m => {
+    const clash = (busy[m] || []).filter(s => { const b = parse(s); return b && b < new Date(t.getTime() + 150 * 6e4) && new Date(t.getTime() - 15 * 6e4) < new Date(b.getTime() + 120 * 6e4); });
+    return { m, free: !clash.length, clash };
+  }));
+}
+function openFree(id) {
+  const r = meetingById(id); if (!r) return;
+  const v = DT[id] || '';
+  if (!v) { toast('先に新しい日時を入れてください'); return; }
+  if (parse(v) <= nowD()) { toast('新しい日時が過去になっています'); return; }
+  const at = v.replace('T', ' ').slice(0, 16), cur = String(r.member || '').toUpperCase();
+  let h = '<h3>' + esc(mdt(at)) + ' に空いている担当</h3><div class="note" style="margin:0 0 8px">' + esc(r.name) + 'さん（いまの担当 ' + esc(honor(cur) || '未確認') + '）。上から順番どおりです。押すと、日程と担当を1回で変えます。</div>';
+  freeMembers(at).forEach((g, i) => {
+    h += '<label class="l">' + (i + 1) + '番目</label><div class="paygrid">' + g.map(x => x.free
+      ? '<button type="button" class="paybtn" data-pick="' + esc(x.m) + '">' + esc(honor(x.m)) + (x.m === cur ? '（いまの担当）' : '') + '</button>'
+      : '<button type="button" class="paybtn" disabled>' + esc(honor(x.m)) + '・面談あり ' + esc(x.clash.map(hm).join('・')) + '</button>').join('') + '</div>';
+  });
+  h += '<div class="note">空きは、この画面にある面談の時刻だけで見ています（担当の私用の予定は見ていません）。決める前に担当に確かめてください。</div>' +
+    '<div class="row2"><button class="go second" type="button" data-close>やめる</button></div>';
+  openSheet(h);
+  document.querySelectorAll('#sheet [data-pick]').forEach(b => b.onclick = () => {
+    const m = b.dataset.pick; closeSheet();
+    if (m === cur) askOp('reschedule', id);
+    else { MB[id] = m; DT['m_' + id] = v; askOp('member', id); }
+  });
+}
+
 
 function askOp(op, id) {
   const r = meetingById(id); if (!r) return;
@@ -1203,6 +1267,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
   const ct = t.closest('[data-contract]'); if (ct) { askContract(ct.closest('.card').dataset.id); return; }
   const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
+  const fr = t.closest('[data-free]'); if (fr) { openFree(fr.dataset.free); return; }   // 全員の空きから選ぶ（2026-11-26）
   const cx = t.closest('[data-cancel]'); if (cx) { askCancel(cx.closest('.card').dataset.id); return; }
   const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
@@ -1253,7 +1318,7 @@ function demoData() {
     row(Object.assign({ applicant_id: 'tabi2demo04', name: 'mihon_sora_trip', start: at(1, 21), insta: 'mihon_sora_trip', appointer: '見本アポ りな', plan_at: '2026-11-25 21:00', plan_url: '', plan: '## 1. ひとことで\n見本：海外で働きたい気持ちは強いが、お金の不安で一歩が出ない。\n## 2. お客様の今\n- ワーホリ中・カフェ勤務\n- 帰国時期は未確認\n## 4. 次の面談の進め方\n1. セミナーの感想を聞く\n2. **帰国時期**を確かめる' }, tabi2)),
     row(Object.assign({ applicant_id: 'tabi1demo05', name: '伊藤 あおい', start: at(1, 19), insta: 'mihon_aoi_abroad', appointer: '見本アポ ゆい' }, tabi1)),
     row({ applicant_id: 'ext_demo06', name: '森 りさ', start: at(3, 13), reminder: 'external', reminder_text: '自動（Zoom の案内のみ）', kind: 'external' }),
-    row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています' }),
+    row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています', resched_state: 'waiting', resched_since: at(-1, 10, 0), resched_until: at(2, 10, 0), hearing_kind: 'submitted' }),
     row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B' }),
     row(Object.assign({ applicant_id: 'tabi2demo09', name: 'mihon_nana_cafe', start: at(-3, 21), insta: 'mihon_nana_cafe', appointer: '見本アポ りな', past: '1', report: 'done', report_summary: '成約・区分A' }, tabi2))
   ];
@@ -1275,7 +1340,7 @@ function demoData() {
     members: DEMO_ADMIN ? ['MIKA', 'RYO', 'NAO', 'KEN'] : ['MIKA', 'RYO', 'NAO', 'KEN'],
     features: { report_ad: 'on', report_tabi: 'on', op_tabi: false, bot: 'on' },
     meta: { list_updated_at: at(0, now.getHours(), Math.floor(now.getMinutes() / 10) * 10), tabi_updated_at: '', stale: '' },
-    meetings,
+    meetings, busy: { KAZUKI: [at(1, 12, 0)], YUSUKE: [], HIROE: [at(1, 13, 0)], SAKI: [], YURIE: [at(1, 12, 0)], SHUHEY: [] }, priority: [['KAZUKI', 'YUSUKE', 'HIROE'], ['SAKI', 'YURIE'], ['SHUHEY']],
     todo: [{ level: 'warn', text: 'ヒアリングシートがまだです（今日 20:00・田中 けんたさん）', applicant_id: 'demo03' },
       { level: 'info', text: '日程が決まっていない方がいます（中村 だいきさん・リマインド停止中）', applicant_id: 'demo07' }],
     stats: { months, history: hist, gap: [] },
