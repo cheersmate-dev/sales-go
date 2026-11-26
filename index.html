@@ -10,6 +10,10 @@
 <meta name="apple-mobile-web-app-title" content="セールスGO">
 <meta name="theme-color" content="#031147">
 <title>セールスGO</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/SalesGO_favicon_32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="img/SalesGO_favicon_64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="img/SalesGO_apple-touch-icon_180.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
@@ -57,8 +61,8 @@ a { color: inherit; }
 header.top { position: sticky; top: 0; z-index: 20; background: linear-gradient(135deg, var(--hero1), var(--hero2)); color: #fff; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; }
 .top-in { max-width: 720px; margin: 0 auto; }
 .brand-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.brand { font-weight: 900; font-size: 18px; white-space: nowrap; letter-spacing: .02em; }
-.brand b { color: var(--yellow); font-family: var(--font-num); font-weight: 700; margin-left: 1px; }
+.brand { flex: none; display: block; line-height: 0; }
+.brand img { display: block; height: 26px; width: auto; }
 .me-pill { margin-left: auto; min-width: 0; font-weight: 700; color: #031147; background: var(--yellow); border-radius: 999px; padding: 2px 10px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reload { flex: none; border: 1px solid var(--hero-line); background: transparent; color: #fff; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
 .meta { color: var(--hero-muted); font-size: 12px; margin-top: 4px; }
@@ -340,7 +344,7 @@ details.faq .a .disc { margin-top: 8px; }
 <header class="top">
   <div class="top-in">
     <div class="brand-row">
-      <span class="brand">セールス<b>GO</b></span>
+      <span class="brand"><img src="img/SalesGO_logo_white.svg" width="121" height="26" alt="セールスGO"></span>
       <span class="me-pill" id="mePill" hidden></span>
       <button class="reload" id="reload" type="button">更新</button>
     </div>
