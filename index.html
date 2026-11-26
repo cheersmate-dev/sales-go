@@ -335,6 +335,10 @@ details.faq .a .disc { margin-top: 8px; }
 .gate { max-width: 460px; margin: 40px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 20px; text-align: center; }
 .gate h2 { margin: 0 0 6px; font-size: 18px; color: var(--head); }
 .gate p { margin: 0; font-size: 14px; color: var(--sub); }
+.gate-paste { margin-top: 16px; text-align: left; }
+.gate-paste input { width: 100%; }
+.gate-paste .go { width: 100%; }
+.gate-paste .note.bad { color: var(--bad); font-weight: 700; }
 .skel { height: 74px; border-radius: 12px; background: linear-gradient(90deg, var(--card) 0%, var(--soft) 50%, var(--card) 100%); background-size: 200% 100%; animation: sk 1.2s linear infinite; margin-bottom: 8px; }
 @keyframes sk { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -1360,7 +1364,7 @@ async function load(quiet) {
   const j = await api('me', isAdmin() && FM ? { who: FM } : {});
   loading = false;
   if (!j.ok) {
-    if (j.error === 'key') { ls.del('key'); gate('このURLでは開けません', ERR.key); return; }
+    if (j.error === 'key') { ls.del('key'); gate('このURLでは開けません', ERR.key, true); return; }
     if (!D) { $('#v-today').innerHTML = '<div class="empty">読み込めませんでした。' + esc(errMsg(j)) + '</div>'; $('#meta').textContent = '読み込めませんでした'; }
     else toast(errMsg(j));
     return;
@@ -1369,10 +1373,26 @@ async function load(quiet) {
   (j.meetings || []).forEach(m => { if (m.manual_new_start) { m.utage_start = m.start; m.start = m.manual_new_start; } });
   D = j; render();
 }
-function gate(title, text) {
+function gate(title, text, paste) {
   ['today', 'meet', 'report', 'num', 'docs'].forEach(k => { $('#v-' + k).hidden = true; });
-  $('#gate').hidden = false; $('#gate').innerHTML = '<div class="gate"><h2>' + esc(title) + '</h2><p>' + esc(text) + '</p></div>';
+  // paste＝専用リンクを貼り付ける欄（ホーム画面に追加したアプリは Safari と保存場所が別で、#k=… も落ちるため・2026-11-26）
+  const box = paste ? '<div class="gate-paste"><label class="l" for="gateKey">会社から届いた専用リンクを、ここに貼り付けてください</label>' +
+    '<input type="text" id="gateKey" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/sales-go/#k=…">' +
+    '<button class="go" type="button" id="gateGo">この端末で開く</button><div class="note" id="gateMsg">1回貼れば、この端末（ホーム画面のアプリも）では次から貼らずに開けます。リンクはあなた専用です。ほかの人に渡さないでください。</div></div>' : '';
+  $('#gate').hidden = false; $('#gate').innerHTML = '<div class="gate"><h2>' + esc(title) + '</h2><p>' + esc(text) + '</p>' + box + '</div>';
   $('#meta').textContent = ''; $('.tabbar').hidden = true; $('#fab').hidden = true; $('#reload').hidden = true;
+  if (paste) {
+    const go = () => {
+      const v = String($('#gateKey').value || '').trim();
+      const m = v.match(/[#&?]k=([A-Za-z0-9_-]{16,})/) || v.match(/^([A-Za-z0-9_-]{16,})$/);
+      if (!m) { $('#gateMsg').textContent = '「#k=…」が入ったリンクを、そのまま全部貼り付けてください。'; $('#gateMsg').classList.add('bad'); return; }
+      ls.set('key', m[1]);   // この端末だけに覚える（アドレスやログには出さない）
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      location.reload();
+    };
+    $('#gateGo').onclick = go;
+    $('#gateKey').onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
 }
 
 // ---- 操作の受け口（1か所でまとめて受ける） ----
@@ -1569,7 +1589,7 @@ function demoApi(action, body) {
   return Promise.resolve({ ok: false, error: 'action' });
 }
 // ---- はじまり ----
-if (!DEMO && !KEY) gate('専用URLで開いてください', '会社から届いた「#k=…」付きのURLで開くと使えます。このURLはあなた専用です。ほかの人に渡さないでください。');
+if (!DEMO && !KEY) gate('専用URLで開いてください', '会社から届いた「#k=…」付きのURLで開くと使えます。ホーム画面から開いたときは、下に専用リンクを1回だけ貼り付けてください。', true);
 else if (!DEMO && !API) gate('準備中です', 'セールスGOはいま準備中です。使えるようになったら、会社からお知らせします。');
 else {
   const first = DEMO ? (params.get('tab') || 'today') : ls.get('tab', 'today');
