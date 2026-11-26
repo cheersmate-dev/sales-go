@@ -1152,6 +1152,8 @@ async function load(quiet) {
     else toast(errMsg(j));
     return;
   }
+  // 手動で日程変更した面談は、新しい日時で並べる（UTAGEの予約は旧日時のまま残るため・2026-11-26 大塚さんの件）
+  (j.meetings || []).forEach(m => { if (m.manual_new_start) { m.utage_start = m.start; m.start = m.manual_new_start; } });
   D = j; render();
 }
 function gate(title, text) {
