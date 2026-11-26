@@ -605,6 +605,7 @@ function card(r) {
   let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
     '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div></div><div class="actions">';
   const dis = busy ? ' disabled' : '';
+  if (r.talk_url) h += '<div class="act"><a class="go second" style="display:block;text-align:center;text-decoration:none" href="' + esc(r.talk_url) + '" target="_blank" rel="noopener noreferrer">💬 LINEトークを開く（1対1）</a></div>';   // 2026-11-26 SHUHEY
   if (r.plan) h += planHtml(r);
   if (r.project === '旅キャリ') {
     h += '<div class="note" style="margin:0 0 10px">' + (r.insta ? 'インスタ @' + esc(instaKey(r.insta)) + '・' : '') + 'アポ ' + esc(r.appointer || '不明') +
