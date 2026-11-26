@@ -750,6 +750,7 @@ function cmtHtml(r) {
   const id = r.applicant_id, list = r.comments || [], w = CMTW[id];
   let h = '<div class="cmt"><h3>💬 コメント<small>担当と管理者（SHUHEY・YUSUKE先生）だけが見られます</small></h3>' +
     '<textarea data-cmt="' + esc(id) + '" maxlength="1000" aria-label="コメント" placeholder="例：この方、ご家族の反対が強いです。次の進め方を相談したいです">' + esc(CMTD[id] || '') + '</textarea>' +
+    '<div class="note" style="margin:0 0 6px">送ると Chatwork の担当者グループで相手に知らせます（お客様の名前と1行目が載ります）。3時間返信が無いときはもう一度お知らせします（夜0〜7時は数えません）。</div>' +
     '<button class="go" type="button" data-cmt-send="' + esc(id) + '"' + (w && w.cls === 'wait' ? ' disabled' : '') + '>' + (w && w.cls === 'wait' ? '送っています…' : 'コメントを送る') + '</button>';
   if (w && w.cls !== 'wait') h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
   let hot = CMT_SEEN[id] || 0;   // 開いたときの未読の数だけ、自分以外の新しいものから強調する
@@ -757,7 +758,7 @@ function cmtHtml(r) {
     const un = !c.mine && hot > 0; if (un) hot--;
     return '<div class="cm' + (c.mine ? ' mine' : '') + (un ? ' unread' : '') + '"><div class="cm-h"><b>' + esc(cmtName(c.by)) + (c.mine ? '（自分）' : '') + '</b><span>' + esc(mdt(c.at)) + '</span>' +
       (un ? '<span class="badge new">新着</span>' : '') + (c.mine ? '<button type="button" class="del" data-cmt-del="' + esc(c.id) + '">消す</button>' : '') + '</div><p>' + esc(c.body) + '</p></div>';
-  }).join('') + '</div>' : '<div class="note">まだコメントはありません。相手から3時間返信が無いときは Chatwork でお知らせします（夜0〜7時は数えません）。</div>';
+  }).join('') + '</div>' : '<div class="note">まだコメントはありません。</div>';
   return h + '</div>';
 }
 function cmtOpened(id) {   // カードを開いたら既読にする（受け口に人ごとに覚える）
