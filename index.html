@@ -296,6 +296,36 @@ details.faq[open] summary { border-bottom: 1px solid var(--line); }
 details.faq .a { padding: 10px 14px 12px; font-size: 14px; white-space: pre-wrap; }
 details.faq .a .disc { margin-top: 8px; }
 
+/* ---- 日程のルールと使い方（2026-11-26 SHUHEY） ---- */
+.rules-top { background: linear-gradient(135deg, var(--hero1), var(--hero2)); color: #fff; border-radius: 14px; padding: 14px 16px; margin: 4px 0 10px; }
+.rules-top h2 { margin: 0 0 6px; font-size: 17px; font-weight: 900; }
+.rules-top ol { margin: 0; padding-left: 1.3em; font-size: 14px; }
+.rules-top li { margin: 4px 0; }
+.rules-top b { color: var(--yellow); }
+details.rule { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
+details.rule summary { cursor: pointer; padding: 12px 14px; font-weight: 700; color: var(--head); list-style: none; display: flex; gap: 8px; align-items: baseline; }
+details.rule summary::-webkit-details-marker { display: none; }
+details.rule summary::after { content: "＋"; margin-left: auto; color: var(--sub); font-weight: 700; }
+details.rule[open] summary::after { content: "－"; }
+details.rule[open] summary { border-bottom: 1px solid var(--line); }
+details.rule .a { padding: 10px 14px 12px; font-size: 14px; }
+details.rule .a p { margin: 0 0 8px; }
+details.rule .a ul, details.rule .a ol { margin: 0 0 8px; padding-left: 1.3em; }
+details.rule .a li { margin: 3px 0; }
+.flow { list-style: none; margin: 0 0 8px; padding: 0; }
+.flow li { position: relative; padding: 0 0 10px 22px; }
+.flow li::before { content: ""; position: absolute; left: 5px; top: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.flow li::after { content: ""; position: absolute; left: 9px; top: 18px; bottom: 0; width: 1px; background: var(--line); }
+.flow li:last-child::after { display: none; }
+.flow .t { display: block; font-size: 12px; color: var(--sub); font-weight: 700; }
+.btab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.btab th, .btab td { text-align: left; vertical-align: top; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+.btab th { color: var(--sub); font-weight: 700; font-size: 12px; }
+.btab td:first-child { font-weight: 700; color: var(--head); width: 36%; }
+.btab .no { color: var(--bad); font-weight: 700; }
+.btab .yes { color: var(--ok); font-weight: 700; }
+.rules-link { display: block; width: 100%; text-align: left; background: var(--chip); border: 0; border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-weight: 700; color: var(--head); }
+
 /* ---- 下から出る画面 ---- */
 .scrim { position: fixed; inset: 0; background: rgba(3,10,40,.45); z-index: 60; opacity: 0; pointer-events: none; transition: opacity .2s; }
 .scrim.on { opacity: 1; pointer-events: auto; }
@@ -616,6 +646,7 @@ function renderMeet() {
     h += '<div class="chips">' + ['', ...ms].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) : '全員') +
       '<span class="n">' + rowsAll().filter(r => !k || r.member === k).length + '</span></button>').join('') + '</div>';
   }
+  h += '<button type="button" class="rules-link" data-rules>📘 日程のルールと使い方を見る ›</button>';
   const xw = WATCH._ext;
   h += '<div style="margin:2px 0 12px"><button class="go second" type="button" id="addExt"' + (xw && xw.cls === 'wait' ? ' disabled' : '') + '>＋ UTAGEに無い予約を登録</button>' +
     '<div class="note">LINE などで日程を決めて、UTAGE に予約が入っていない人を一覧・カレンダー・顧客マスターに載せます。</div>' +
@@ -1268,10 +1299,126 @@ function adminHtml() {
 
 // ---- 資料 ----
 let FAQ_Q = '';
+// ---- 日程のルールと使い方（2026-11-26 SHUHEY「ルールと使い方がわかるように」） ----
+const RULES_TOP = [
+  'お客様は<b>日時だけ</b>を選びます。担当は、空いている人の中から決まった順番で自動で決まります。',
+  'UTAGEの外で決めた面談（2回目など）は、<b>自分のカレンダーにも必ず予定を入れる</b>。入れないと、同じ時間にべつの予約が入ります。',
+  '<b>ヒアリングシートを出した人にだけ</b>、Zoomの案内とリマインドが届きます。',
+  '日程の操作は<b>ぜんぶ Sales GO! で</b>。前の「面談スケジュール」の画面はおしまいです。'
+];
+const RULES = [
+  ['📅 予約が入ってから面談までの流れ',
+    '<ol class="flow">' +
+    '<li><span class="t">予約が入る</span>担当は KAZUKI・YUSUKE先生・HIROE → SAKI・YURIE → SHUHEY の順で、空いている人に決まります。</li>' +
+    '<li><span class="t">無職・パートのお客様が KAZUKI・YUSUKE先生 に入ったとき</span>SAKI・YURIE に「振り替えのお願い」が届きます（くわしくは下の「🔄 振り替えのきまり」）。</li>' +
+    '<li><span class="t">予約から2時間後・期限の4時間前</span>UTAGEが「ヒアリングシートのお願い」を送ります。</li>' +
+    '<li><span class="t">予約から24時間</span>まだ出ていなければ、期限をのばすLINEを1回だけ送ります（あと24時間）。</li>' +
+    '<li><span class="t">予約から48時間</span>それでも出ていなければ自動でキャンセル。お客様にキャンセルのLINE、担当に Chatwork【CM】面談・お客様対応 でお知らせ、カレンダーは【キャンセル】になります。点検は1日5回なので、48時間を過ぎた次の点検で動きます。</li>' +
+    '<li><span class="t">ヒアリングを出した人だけ</span>3日前12時に準備の案内、前日21:15・当日7:30・30分前にリマインド（Zoomのリンクつき）。</li>' +
+    '<li><span class="t">面談の前に</span>面談のカードの「面談の準備」で、ヒアリングシートの中身と作戦会議を読んでおきます。</li>' +
+    '</ol>'],
+  ['📝 ヒアリングシートの出し方を見る',
+    '<p>面談のカードに出ている印で分かります。</p><ul>' +
+    '<li><b>📝 ヒアリング提出済み</b>：出しています。</li>' +
+    '<li><b>📝 提出期限まであと◯時間</b>：まだです。期限を過ぎると自動キャンセルになります。</li>' +
+    '<li><b>（延長済み・最終）</b>：のばしたあとの最後の期限です。</li>' +
+    '<li><b>📝 直前予約のためヒアリング期限なし</b>：面談が近すぎるので自動キャンセルはしません。ただし出していないと<b>Zoomの案内が届かない</b>ので、担当から連絡してください。</li>' +
+    '<li><b>📝 ヒアリング未提出・人が確認</b>：自動では決めきれないので、担当が確かめてください。</li>' +
+    '</ul><p>カレンダーの予定にも、出していない人は「⚠ 未回答」と出ます。</p>'],
+  ['🗒 面談の準備（ヒアリングの中身・作戦会議）',
+    '<ul>' +
+    '<li>面談のカードのいちばん上に「面談の準備」があります。<b>📝 ヒアリング</b>と<b>🗒 作戦会議</b>をタブで切りかえて読めます。</li>' +
+    '<li>カードを閉じていても、働き方・一番の悩み・ひとことが1〜2行で見えます。</li>' +
+    '<li>作戦会議は、一次面談のあとに自動で作られます。2回目の面談の前に読んでおきましょう。</li>' +
+    '<li>見えるのは<b>自分のお客様の分だけ</b>。SHUHEY と YUSUKE先生は全員の分を見られます。</li>' +
+    '</ul>'],
+  ['🔄 振り替えのきまり（無職・パートのお客様）',
+    '<ol class="flow">' +
+    '<li><span class="t">お願いが届く</span>無職・パートのお客様が KAZUKI か YUSUKE先生 の担当になったら、SAKI・YURIE に Chatwork で「振り替えのお願い」が届きます。Sales GO! の今日タブにも出ます。</li>' +
+    '<li><span class="t">早い者勝ち</span>先に「引き受ける」を押した人が担当になります。お客様には「担当変更のお知らせ」が自動で届き、Zoomも切り替わります。</li>' +
+    '<li><span class="t">締切は8時間</span>夜中（0時〜7時）は数えません。</li>' +
+    '<li><span class="t">だれも引き受けなかったら</span>元の担当がヒアリングシートを見て「実施する」か「お断りする」を選びます。「お断りする」を選んでも、お客様へはシステムから何も送りません。<b>連絡は担当から</b>してください。</li>' +
+    '</ol><p>報酬は、実際に面談した人につきます。</p>'],
+  ['🔁 日程変更のきまり',
+    '<ul>' +
+    '<li>お客様から「日にちを変えたい」とLINEが来たら、<b>自動で変更リンク</b>が届きます。担当は何もしなくて大丈夫です。選べるのは面談の前日14時までの枠です。</li>' +
+    '<li>選び直して担当が変わったら、前の担当と新しい担当の両方に Chatwork でお知らせが届きます。Zoomも自動で切り替わります。</li>' +
+    '<li>お客様と<b>自分で日時を決めた</b>ときは「手動で日程変更した」か「全員の空きから選ぶ」。お客様には何も送らないので、<b>新しい日時は自分で伝えてください</b>。</li>' +
+    '<li>決め直している途中は「日程変更待ちにする」。期限は<b>3日</b>。過ぎても決まらなければ Chatwork でお知らせします。</li>' +
+    '<li>面談が終わったあとの日程の相談は、自動返信しません。担当に Chatwork で届くので、返事をして2回目を登録してください。</li>' +
+    '<li>旅キャリの2回目は<b>同じ担当</b>。担当の都合で1週間以上あくときは、べつの担当にかえます。</li>' +
+    '<li>報酬は、<b>実際に面談した人</b>につきます。</li>' +
+    '<li><b>準備中</b>：面談の時間を過ぎてしまった予約の日程変更も、もうすぐ Sales GO! からできるようになります。</li>' +
+    '</ul>'],
+  ['❌ キャンセルのきまり',
+    '<ul>' +
+    '<li>お客様から連絡があったら「この面談をキャンセルにする」。UTAGE・カレンダー・顧客マスターがまとめて直ります。<b>お客様には何も送りません</b>。</li>' +
+    '<li>ヒアリング未提出の自動キャンセルは、お客様にキャンセルのLINEが届きます。</li>' +
+    '<li>旅キャリの予約は、YUSUKE先生側のUTAGEで取り消します。</li>' +
+    '</ul>'],
+  ['🗓 カレンダーのきまり',
+    '<ul>' +
+    '<li>UTAGEは、みんなのGoogleカレンダーの空きを見て予約を入れます。</li>' +
+    '<li>だから<b>UTAGEの外で決めた面談</b>（旅キャリの2回目、LINEで決めた面談など）や私用の予定は、<b>自分のカレンダーに入れて時間をふさいでください</b>。</li>' +
+    '<li>LINEで決めてUTAGEに予約が無い面談は、面談タブの「＋ UTAGEに無い予約を登録」で載せます。</li>' +
+    '<li><b>準備中</b>：決まった面談を Sales GO! が自分のカレンダーに書きこむ仕組みを用意しています。始まるまでは、いままでどおり自分で入れてください。</li>' +
+    '<li>「全員の空きから選ぶ」は、面談の前15分・面談2時間・後30分がほかの面談と重ならない人を出します。<b>私用の予定までは見ていない</b>ので、決める前に本人に確かめてください。</li>' +
+    '</ul>']
+];
+const RULES_BTN = [
+  ['手動で日程変更した', 'お客様と新しい日時を決めた', false, '古いリマインドを止めて、新しい日時で組み直す'],
+  ['全員の空きから選ぶ', '日時と担当を一度に変えたい', null, '担当が変わるときだけ「担当変更のお知らせ」が届く'],
+  ['日程変更待ちにする', '決め直している途中', false, '報告がいらなくなる。期限3日'],
+  ['担当を変える', '自分が出られなくなった', true, '「担当変更のお知らせ」とZoomが切り替わる'],
+  ['この面談をキャンセルにする', 'キャンセルの連絡があった', false, 'UTAGE・カレンダー・顧客マスターをまとめて直す'],
+  ['リマインドだけ止める', '案内を一時止めたい', false, '止めた記録が残る'],
+  ['自動返信を止める', '自分でLINEのやり取りをしたい', false, '届いた連絡は Chatwork で担当へ'],
+  ['＋ UTAGEに無い予約を登録', 'LINEなどで日程を決めた', false, 'Zoomの案内だけ自動で送る'],
+  ['引き受ける', '振り替えのお願いが来た（SAKI・YURIE）', true, '「担当変更のお知らせ」とZoomが切り替わる'],
+  ['実施する', 'だれも引き受けなかった（元の担当）', false, 'そのまま自分が面談する'],
+  ['お断りする', 'だれも引き受けなかった（元の担当）', false, 'お断りの連絡は担当から']
+];
+const RULES_CASES = [
+  ['面談の時間を過ぎてから、予約に気づいた（二重予約など）',
+    '<ol><li>カードの「💬 LINEトークを開く」で、お客様にまずおわびして、新しい日時の候補を2〜3つ出します。</li>' +
+    '<li>決まるまでは「日程変更待ちにする」（期限3日）。</li>' +
+    '<li>決まったら「全員の空きから選ぶ」か「手動で日程変更した」。新しい日時とZoomは、自分からお客様に伝えます。</li>' +
+    '<li>ヒアリングシートがまだなら、同じLINEでお願いします。</li></ol>' +
+    '<p>起きた理由の多くは「UTAGEの外で入れた面談をカレンダーでふさいでいなかった」ことです。次からは予定を入れておきましょう。</p>'],
+  ['前日の夜に、翌日の面談の予約が入った',
+    '<p>「直前予約のためヒアリング期限なし」になり、自動キャンセルはしません。ただ、前日のリマインドは時刻を過ぎているので届かず、ヒアリングを出していないと当日のZoomの案内も届きません。</p>' +
+    '<p>気づいたら、LINEトークを開いて「ヒアリングシートのお願い」と「Zoomのリンク」を自分から送ってください。</p>'],
+  ['お客様から「日にちを変えたい」と来た',
+    '<p>何もしなくて大丈夫です。自動で変更リンクが届きます。自分でやり取りしたいときは「このお客様の自動返信を止める」を押してから返事をし、決まったら「手動で日程変更した」。</p>'],
+  ['自分が面談に出られなくなった',
+    '<p>「全員の空きから選ぶ」か「担当を変える」。新しい担当が決まると、お客様に「担当変更のお知らせ」が自動で届きます。報酬は実際に面談した人につきます。</p>'],
+  ['ヒアリングシートを出しているか知りたい',
+    '<p>面談のカードの「📝」の印を見てください。カレンダーの予定に「⚠ 未回答」と出ていれば、まだです。</p>'],
+  ['「振り替えのお願い」が届いた（SAKI・YURIE）',
+    '<p>Sales GO! の今日タブを開いて、出られるなら「引き受ける」。早い者勝ちなので、ほかの人が先に押していたらそちらが担当です。出られないときは何もしなくて大丈夫です。</p>'],
+  ['振り替え先が見つからなかった（元の担当）',
+    '<p>今日タブの「振り替え先が見つからなかった面談」で、シートを見て「実施する」か「お断りする」。お断りするときは、お客様への連絡を自分からしてください。</p>'],
+  ['面談の前に、お客様のことを知りたい',
+    '<p>面談のカードの「面談の準備」を開いてください。📝 ヒアリングにシートの答え、🗒 作戦会議に前の面談からのメモがあります。</p>'],
+  ['お客様から「キャンセルしたい」と来た',
+    '<p>広告の面談は「この面談をキャンセルにする」。お客様には何も送らないので、返事は自分でします。旅キャリはYUSUKE先生側のUTAGEで取り消します。</p>']
+];
+function rulesHtml() {
+  let h = '<div id="rules"><div class="rules-top"><h2>📘 日程のルールと使い方</h2><div style="font-size:12.5px;opacity:.85;margin-bottom:6px">まずはこの4つだけ覚えればOK</div><ol>' +
+    RULES_TOP.map(s => '<li>' + s + '</li>').join('') + '</ol></div>';
+  h += RULES.map(([t, a]) => '<details class="rule"><summary>' + t + '</summary><div class="a">' + a + '</div></details>').join('');
+  h += '<details class="rule"><summary>🔘 ボタンの早見表（お客様に届く？）</summary><div class="a"><table class="btab"><tr><th>ボタン</th><th>こんなとき</th><th>お客様へ</th></tr>' +
+    RULES_BTN.map(([b, w, c, n]) => '<tr><td>' + esc(b) + '</td><td>' + esc(w) + '<div class="note" style="margin:2px 0 0">' + esc(n) + '</div></td><td>' +
+      (c === true ? '<span class="yes">届く</span>' : c === false ? '<span class="no">届かない</span><div class="note" style="margin:2px 0 0">自分で伝える</div>' : '担当が変わるときだけ') + '</td></tr>').join('') + '</table></div></details>';
+  h += '<div class="sec-h"><h2>こんな時どうする？</h2><span class="hint">' + RULES_CASES.length + '件</span></div>';
+  h += RULES_CASES.map(([q, a]) => '<details class="rule"><summary>' + esc(q) + '</summary><div class="a">' + a + '</div></details>').join('');
+  return h + '</div>';
+}
+function goRules() { showTab('docs'); const el = $('#rules'); if (el) el.scrollIntoView({ block: 'start' }); }
 function renderDocs() {
   const all = D.links || [], faq = D.faq || [];
   const pay = all.filter(l => /^pay:/.test(l.note || '')), links = all.filter(l => !/^pay:/.test(l.note || ''));
-  let h = '';
+  let h = rulesHtml();
   if (pay.length) {
     h += '<div class="sec-h" style="margin-top:4px"><h2>決済リンク</h2><span class="hint">押すとURLがコピーされます</span></div>';
     [['pay:単発', '単発決済'], ['pay:継続', '継続決済（毎月5日に決済）']].forEach(([k, label]) => {
@@ -1400,6 +1547,7 @@ document.addEventListener('click', e => {
   const t = e.target;
   if (t.closest('[data-close]')) { closeSheet(); return; }
   const tb = t.closest('[data-tab]'); if (tb) { showTab(tb.dataset.tab); return; }
+  if (t.closest('[data-rules]')) { goRules(); return; }
   const gr = t.closest('[data-go-report]'); if (gr) { startReport(gr.dataset.goReport); return; }
   const gm = t.closest('[data-go-meet]'); if (gm) {
     const id = gm.dataset.goMeet; OPEN = id; FP = ''; showTab('meet');
