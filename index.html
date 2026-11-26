@@ -633,6 +633,7 @@ function card(r) {
     }
     h += '<div class="act"><a class="go" style="display:block;text-align:center;text-decoration:none" href="https://app.hellosign.com/account/logIn" target="_blank" rel="noopener noreferrer">契約書を送る（Dropbox Sign を開く）</a><div class="note">ログイン情報は Discord の「契約書送付のDropboxサイン」にあります。件名は「【氏名 様】◯◯プラン契約書（NNN万円）」、CC は info@cheersmate11.com。</div></div>';
     if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act"><h3>LINEで送る</h3><div class="paygrid">' + (D.tpls).map(t => '<button type="button" class="paybtn" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(t.title) + '</button>').join('') + '</div><div class="note">押すと、送る中身を確かめる画面が出ます。</div></div>';
+    if (r.project !== '旅キャリ' && r.reminder !== 'external') h += '<div class="act"><button class="go undo" type="button" data-cancel="1"' + dis + '>この面談をキャンセルにする</button><div class="note">お客様からキャンセルの連絡があったときに。UTAGEの予約をキャンセルにして、カレンダーと顧客マスターも直します。お客様には何も送りません。</div></div>';   // 2026-11-26 SHUHEY
     h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
       '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
     const ms = isAdmin() ? (D.members || []) : (D.members || []);
@@ -726,6 +727,24 @@ async function sendLine(id, tpl) {
     WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
     render();
   });
+}
+function askCancel(id) {   // 手動キャンセル（2026-11-26 SHUHEY）
+  const r = meetingById(id); if (!r) return;
+  openSheet('<div class="sh-top"><h3>面談をキャンセルにする</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="conf"><div><b>' + custName(r) + '</b></div><div>' + esc(mdt(r.start)) + '・担当 ' + esc(r.member || '') + '</div></div>' +
+    '<div class="note" style="margin:8px 0">UTAGEの予約を「キャンセル（連絡あり）」にして、リマインドを止めます。Googleカレンダーは【キャンセル】に、顧客マスターの結果はキャンセルになります。<b>お客様には何も送りません</b>（必要ならLINEで一言伝えてください）。元に戻すときはUTAGEで予約を取り直します。</div>' +
+    '<label class="l" for="cxNote">メモ（任意・例：体調不良のため）</label><input type="text" id="cxNote" maxlength="100" autocomplete="off">' +
+    '<div class="act"><button class="go undo" type="button" id="cxGo">キャンセルにする</button></div>');
+  $('#cxGo').onclick = async () => {
+    const note = ($('#cxNote').value || '').trim(); closeSheet();
+    WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどでキャンセルにします…' }; render();
+    const j = await api('cancel', { client_id: cid('c'), applicant_id: id, note });
+    if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+    poll(j.id, q => {
+      WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+      load(true);
+    });
+  };
 }
 async function sendMute(id, on) {
   WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどで切り替わります…' }; render();
@@ -1184,6 +1203,7 @@ document.addEventListener('click', e => {
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
   const ct = t.closest('[data-contract]'); if (ct) { askContract(ct.closest('.card').dataset.id); return; }
   const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
+  const cx = t.closest('[data-cancel]'); if (cx) { askCancel(cx.closest('.card').dataset.id); return; }
   const mu = t.closest('[data-mute]'); if (mu) { sendMute(mu.closest('.card').dataset.id, mu.dataset.mute === '1'); return; }
   const pb = t.closest('[data-pay]'); if (pb) { copyPay(pb.dataset.pay, pb.dataset.payt); return; }
   const stb = t.closest('[data-st]'); if (stb) { openStatus(+stb.dataset.st); return; }
