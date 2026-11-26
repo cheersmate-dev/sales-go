@@ -101,6 +101,37 @@ details.plan .plan-b { padding: 0 12px 12px; font-size: 13px; line-height: 1.7; 
 details.plan h4 { margin: 12px 0 4px; font-size: 14px; color: var(--head); }
 details.plan ul, details.plan ol { margin: 4px 0; padding-left: 1.3em; }
 details.plan p { margin: 4px 0; }
+/* 面談の準備（ヒアリングシートの中身・作戦会議。2026-11-26 SHUHEY 見本OK） */
+.prep-sum { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--ink); }
+.prep-sum div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prep-sum b { color: var(--head); }
+.prep { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
+.prep > h3 { margin: 0; padding: 10px 12px 0; font-size: 14px; font-weight: 900; color: var(--head); }
+.ptabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 12px 0; }
+.ptabs button { border: 1px solid var(--line); background: var(--soft); color: var(--sub); border-radius: 10px 10px 0 0; border-bottom: 0; padding: 7px 4px; font-size: 13px; font-weight: 700; min-height: 48px; line-height: 1.3; }
+.ptabs button small { display: block; font-size: 11px; font-weight: 700; opacity: .85; }
+.ptabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.pbody { border-top: 2px solid var(--accent); padding: 12px; font-size: 14px; line-height: 1.7; }
+.glance { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.glance div { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; min-width: 0; }
+.glance small { display: block; font-size: 11px; color: var(--sub); font-weight: 700; }
+.glance b { display: block; font-size: 14px; color: var(--head); overflow-wrap: anywhere; }
+.worry { background: var(--stopbg); border: 1px solid var(--yellow); border-left-width: 6px; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+.worry small { display: block; font-size: 11px; font-weight: 900; color: var(--stop); }
+.worry p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 700; }
+.qa { margin: 0; }
+.qa dt { font-size: 12px; font-weight: 900; color: var(--sub); margin-top: 10px; }
+.qa dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.qa dd.none { color: var(--sub); }
+.psec { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+.psec.first { background: var(--stopbg); border-color: var(--yellow); }
+.psec h4 { margin: 0 0 4px; font-size: 14px; color: var(--head); }
+.psec ul, .psec ol { margin: 4px 0; padding-left: 1.3em; }
+.psec p { margin: 4px 0; }
+.chk { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; cursor: pointer; }
+.chk:first-of-type { border-top: 0; }
+.chk input { width: 20px; height: 20px; min-height: 0; margin: 2px 0 0; flex: none; accent-color: var(--navy); }
+.chk input:checked + span { color: var(--sub); text-decoration: line-through; }
 .box { border-radius: 10px; padding: 10px 12px; font-size: 13px; }
 .box.info { background: var(--chip); color: var(--ink); }
 .box.warn { background: var(--badbg); color: var(--bad); }
@@ -620,10 +651,73 @@ function planMd(t) {
   });
   close(); return h;
 }
-function planHtml(r) {
-  return '<details class="plan"><summary>🗒 作戦会議（次の面談の前に）</summary><div class="plan-b">' + planMd(r.plan) +
-    '<div class="note">' + (r.plan_at ? esc(r.plan_at) + ' に作成・' : '') + 'Claude が文字起こしから書いた下書きです。決めつけず、お客様の言葉で確かめてください。' +
-    (r.plan_url ? ' <a href="' + esc(r.plan_url) + '" target="_blank" rel="noopener noreferrer">Notion で開く</a>' : '') + '</div></div></details>';
+// ---- 面談の準備（2026-11-26 SHUHEY 見本OK）：ヒアリングシートの中身（受け口の r.hearing）と作戦会議（r.plan）を面談ごとに ----
+const PREP = {}, CHK = {};   // 開いているタブ（面談ごと）・「次の面談の進め方」のチェック（この端末の画面の中だけ・保存しない）
+function planSecs(t) {   // 「## 見出し」で区切る（作戦会議は ## 1. ひとことで 〜 ## 6. 気をつけること の6つ）
+  const out = []; let cur = null;
+  String(t || '').split('\n').forEach(line => {
+    const m = line.trim().match(/^#{1,3}\s+(.*)$/);
+    if (m) { cur = { h: m[1].replace(/^\d+[.)．]\s*/, ''), body: [] }; out.push(cur); }
+    else if (cur) cur.body.push(line); else if (line.trim()) { cur = { h: '', body: [line] }; out.push(cur); }
+  });
+  return out;
+}
+function planLead(r) { const s = planSecs(r.plan)[0]; return s ? s.body.map(x => x.trim()).filter(Boolean).join(' ').replace(/\*\*/g, '') : ''; }
+function hearingState(r) {
+  if (r.hearing) return 'done';
+  if (r.project === '旅キャリ' || r.kind === 'external' || r.kind === 'tabi1' || r.kind === 'tabi2') return 'na';
+  return r.hearing_kind === 'submitted' ? 'wait' : 'yet';
+}
+function hearingVal(r, k) { const g = ((r.hearing || {}).glance || []).find(x => x.k === k); return g ? g.v : ''; }
+function prepSummary(r) {   // 閉じたカードの1〜2行：📝 働き方・一番の悩み／🗒 作戦会議のひとことで
+  let h = '';
+  if (r.hearing) {
+    const w = String(r.hearing.worry || '').replace(/\s+/g, ' ');
+    h += '<div>📝 <b>' + esc(hearingVal(r, '働き方') || '働き方 未回答') + '</b>' + (w ? '・' + esc(w) : '') + '</div>';
+  }
+  const lead = r.plan ? planLead(r) : '';
+  if (lead) h += '<div>🗒 <b>ひとことで</b>・' + esc(lead) + '</div>';
+  return h ? '<div class="prep-sum">' + h + '</div>' : '';
+}
+function hearingPane(r) {
+  const st = hearingState(r), x = r.hearing;
+  if (st === 'na') return '<div class="note" style="margin:0">' + (r.kind === 'external' ? 'UTAGEに無い予約（パネルで登録）には、ヒアリングシートの中身は出ません。' : '旅キャリの面談には、ヒアリングシートはありません。') + '</div>';
+  if (st === 'wait') return '<div class="box info">提出済みです。中身はまもなくここに出ます（10分ほど）。</div>';
+  if (st === 'yet') {
+    const k = r.hearing_kind, left = r.hearing_until ? leftText(r.hearing_until) : '';
+    const due = (k === 'first' || k === 'final') && r.hearing_until ? '期限 ' + mdt(r.hearing_until) + (left ? '・' + left : '') + (k === 'final' ? '（延長済み・最終）' : '') : k === 'none' ? '直前の予約のため期限はありません' : '';
+    return '<div class="box y">まだ提出されていません' + (due ? '（' + esc(due) + '）' : '') + '。届いたらここに出ます。</div>';
+  }
+  let h = '<div class="glance">' + (x.glance || []).map(g => '<div><small>' + esc(g.k) + '</small><b>' + esc(g.v || '未回答') + '</b></div>').join('') + '</div>';
+  h += '<div class="worry"><small>一番の悩み</small><p>' + esc(x.worry || '未回答') + '</p></div>';
+  h += '<dl class="qa">' + (x.items || []).map(q => '<dt title="' + esc(q.full || q.q) + '">' + esc(q.q) + '</dt><dd' + (q.a ? '' : ' class="none"') + '>' + esc(q.a || '未回答') + '</dd>').join('') + '</dl>';
+  return h + '<div class="note">提出 ' + esc(x.at || '—') + '</div>';
+}
+function planPane(r) {
+  if (!r.plan) return '<div class="note" style="margin:0">まだありません。作戦会議は一次面談のあとに作られます。</div>';
+  const id = r.applicant_id;
+  const h = planSecs(r.plan).map((s, i) => {
+    let body;
+    if (/次の面談の進め方/.test(s.h)) {
+      const items = s.body.map(x => x.trim()).filter(Boolean);
+      body = items.map((x, j) => {
+        const m = x.match(/^(?:\d+[.)．]|[-*・])\s+(.*)$/), k = id + '|' + j;
+        if (!m) return '<p>' + planMd(x).replace(/^<p>|<\/p>$/g, '') + '</p>';
+        return '<label class="chk"><input type="checkbox" data-chk="' + esc(k) + '"' + (CHK[k] ? ' checked' : '') + '><span>' + planMd(m[1]).replace(/^<p>|<\/p>$/g, '') + '</span></label>';
+      }).join('');
+    } else body = planMd(s.body.join('\n'));
+    return '<div class="psec' + (i === 0 ? ' first' : '') + '">' + (s.h ? '<h4>' + esc(s.h) + '</h4>' : '') + body + '</div>';
+  }).join('');
+  return h + '<div class="note">' + (r.plan_at ? esc(r.plan_at) + ' に作成・' : '') + 'Claude が文字起こしから書いた下書きです。決めつけず、お客様の言葉で確かめてください。' +
+    (r.plan_url ? ' <a href="' + esc(r.plan_url) + '" target="_blank" rel="noopener noreferrer">Notion で開く</a>' : '') + '</div>';
+}
+function prepHtml(r) {
+  const id = r.applicant_id, st = hearingState(r), tab = PREP[id] || 'h';
+  const hl = { done: '提出済み', wait: '提出済み', yet: 'まだ', na: 'なし' }[st];
+  return '<div class="prep"><h3>面談の準備</h3><div class="ptabs">' +
+    '<button type="button" data-prep="h" class="' + (tab === 'h' ? 'on' : '') + '" aria-pressed="' + (tab === 'h') + '">📝 ヒアリング<small>（' + hl + '）</small></button>' +
+    '<button type="button" data-prep="p" class="' + (tab === 'p' ? 'on' : '') + '" aria-pressed="' + (tab === 'p') + '">🗒 作戦会議<small>（' + (r.plan ? 'あり' : 'なし') + '）</small></button></div>' +
+    '<div class="pbody">' + (tab === 'p' ? planPane(r) : hearingPane(r)) + '</div></div>';
 }
 function tabiLocked(r) { return r.project === '旅キャリ' && !(D.features && D.features.op_tabi && r.can_operate === '1'); }
 function card(r) {
@@ -640,10 +734,9 @@ function card(r) {
   if (r.report === 'done') b += '<span class="badge on">報告済み' + (r.report_summary ? '：' + esc(r.report_summary) : '') + '</span>';
   if (r.plan) b += '<span class="badge on">🗒 作戦会議あり</span>';
   let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
-    '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div></div><div class="actions">';
+    '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div>' + prepSummary(r) + '</div><div class="actions">' + prepHtml(r);   // 面談の準備をいちばん上に（2026-11-26 SHUHEY）
   const dis = busy ? ' disabled' : '';
   if (r.talk_url) h += '<div class="act"><a class="go second" style="display:block;text-align:center;text-decoration:none" href="' + esc(r.talk_url) + '" target="_blank" rel="noopener noreferrer">💬 LINEトークを開く（1対1）</a></div>';   // 2026-11-26 SHUHEY
-  if (r.plan) h += planHtml(r);
   if (r.project === '旅キャリ') {
     h += '<div class="note" style="margin:0 0 10px">' + (r.insta ? 'インスタ @' + esc(instaKey(r.insta)) + '・' : '') + 'アポ ' + esc(r.appointer || '不明') +
       (r.kind === 'tabi2' ? '<br>担当は一次面談の担当を出しています（変わっている場合があります）。' : '') + '</div>';
@@ -1300,6 +1393,8 @@ document.addEventListener('click', e => {
   if (t.closest('#repMore')) { REP_SENT = null; REP = null; renderReport(); return; }
   const ct = t.closest('[data-contract]'); if (ct) { askContract(ct.closest('.card').dataset.id); return; }
   const tp = t.closest('[data-tpl]'); if (tp) { askLine(tp.closest('.card').dataset.id, tp.dataset.tpl); return; }
+  const pt = t.closest('[data-prep]'); if (pt) { const c = pt.closest('.card'); if (c) { PREP[c.dataset.id] = pt.dataset.prep; renderMeet(); } return; }   // 面談の準備のタブ（2026-11-26）
+  if (t.closest('.chk')) return;   // チェックは change で受ける（カードを閉じない）
   const fr = t.closest('[data-free]'); if (fr) { openFree(fr.dataset.free); return; }   // 全員の空きから選ぶ（2026-11-26）
   const ra = t.closest('[data-ra]'); if (ra) { sendReassign(ra.dataset.raid, ra.dataset.ra); return; }   // 振り替え（2026-11-26）
   const cx = t.closest('[data-cancel]'); if (cx) { askCancel(cx.closest('.card').dataset.id); return; }
@@ -1323,6 +1418,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.mb != null) MB[t.dataset.mb] = t.value;
+  if (t.dataset.chk != null) CHK[t.dataset.chk] = t.checked;   // 次の面談の進め方のチェック（画面の中だけ・保存しない）
   if (t.dataset.f && REP) { REP.f[t.dataset.f] = t.value; saveDraft(); recheck(); }
 });
 $('#scrim').onclick = closeSheet;
@@ -1345,13 +1441,32 @@ function demoData() {
   const row = o => { const r = Object.assign({}, base, o); r.start_text = md(r.start) + hm(r.start); if (parse(r.start) < now) r.past = r.past || (parse(r.start) < new Date(now.getTime() - 3600000) ? '1' : ''); return r; };
   const tabi1 = { project: '旅キャリ', kind: 'tabi1', stage: '旅キャリ・一次面談', reminder: 'tabicari', reminder_text: 'UTAGE（旅キャリ側）が自動で送信', can_operate: '' };
   const tabi2 = { project: '旅キャリ', kind: 'tabi2', stage: '旅キャリ・二次面談', reminder: 'tabicari', reminder_text: '自動の案内なし', can_operate: '' };
+  // 面談の準備の見本（架空の人・架空の答え。2026-11-26）
+  const QS = [['現在の働き方', '現在の働き方（雇用形態）'], ['年齢', '年齢'], ['性別', '性別'], ['家族構成', '家族構成'], ['仕事の業界・業務内容', '仕事の業界や業務内容'],
+    ['現在の英語力', '現在の英語力（※TOEICスコアは目安）'], ['理想のグローバルライフ', '【理想】1年後、あなたの理想の働き方やライフスタイルを教えて下さい。'],
+    ['現在の満足度', '＜現状＞今現在の働き方の満足度は何点ですか？'], ['点数の理由・現在の悩み', '＜現状＞上記の点数である理由として、現在の働き方やライフスタイルの悩みを教えて下さい。'],
+    ['一番の課題や原因', '＜現状＞理想的な100点満「働き方・ライフスタイル」が得られていない一番の課題や原因は何ですか？'], ['面談で聞きたいこと', '個別ロードマップ面談で、特に聞きたいことや質問'],
+    ['希望プラン', '希望のプランを教えて下さい。'], ['希望プランの理由', 'その理由を教えて下さい。（希望のプラン）']];
+  const hear = (at_, a) => ({ at: at_, glance: [{ k: '働き方', v: a[0] }, { k: '満足度', v: a[7] }, { k: '希望プラン', v: a[11] }], worry: a[8],
+    items: QS.map((q, i) => ({ q: q[0], full: q[1], a: a[i] || '' })) });
+  const H1 = hear('2026/11/24 21:12', ['派遣社員', '34歳', '女性', '独身（子なし）', '見本：IT企業の事務（派遣）。データ入力と電話応対', '2.旅行で話せたり簡単な日常会話ができる（300~500点）',
+    '見本：海外とやりとりする仕事を在宅でしながら、年に2回は海外で暮らしたい', '30点', '見本：契約更新のたびに不安になる。毎日同じ作業で、このまま40代になるのが怖い',
+    '見本：英語を仕事で使った経験がなく、何から始めればいいか分からない', '見本：未経験でも半年で仕事を取れるのか', '自分に合うプランを相談したい', '']);
+  const H2 = hear('2026/11/20 08:40', ['正社員', '41歳', '男性', '既婚（子あり）', '見本：メーカーの営業（国内）', '3.日常会話が問題なくでき、簡単なビジネスコミュニケーションがとれる（500~730点）',
+    '見本：家族と海外に移り、英語を使って自分の裁量で働いている', '50点', '見本：収入は安定しているが、転勤と残業で家族との時間が取れない',
+    '見本：会社以外で稼いだ経験がない', '見本：家族を説得するには何を話せばいいか', 'Standard', '見本：サポートが長いほうが安心だから']);
+  const PLAN2 = '## 1. ひとことで\n見本：**家族の同意**が最後の一歩。気持ちはAに近いB。\n## 2. お客様の今\n- 見本：営業職で英語は中級\n- 見本：前回はStandardに前向き、奥さまと相談すると持ち帰り\n' +
+    '## 3. 本音と迷い\n- 見本：お金より「家族にどう説明するか」で止まっている\n## 4. 次の面談の進め方\n1. 前回からの変化を聞く（奥さまと話せたか）\n2. **家族に話したときの反応**を確かめる\n3. 家族向けの説明の材料を一緒に作る\n4. 次の一歩（申込の日）を本人の言葉で決める\n' +
+    '## 5. 聞かれそうなことと答え方\n- 見本：「本当に副業から始められる？」→ 受講生の例で答える\n## 6. 気をつけること\n- 見本：急がせない・値引きの話はしない';
   let meetings = [
     row({ applicant_id: 'demo01', name: '佐藤 みゆき', start: at(0, 10), report: 'needed', past: '1' }),
     row(Object.assign({ applicant_id: 'tabi1demo02', name: '高橋 はると', start: at(-1, 20), insta: 'mihon_haru_trip', appointer: '見本アポ ゆい', report: 'needed', past: '1' }, tabi1)),
-    row({ applicant_id: 'demo03', name: '田中 けんた', start: at(0, 20), reminder_text: '配信中（前日21:15・当日7:30・30分前）' }),
+    row({ applicant_id: 'demo03', name: '田中 けんた', start: at(0, 20), hearing: H1, hearing_kind: 'submitted', reminder_text: '配信中（前日21:15・当日7:30・30分前）' }),
     row(Object.assign({ applicant_id: 'tabi2demo04', name: 'mihon_sora_trip', start: at(1, 21), insta: 'mihon_sora_trip', appointer: '見本アポ りな', plan_at: '2026-11-25 21:00', plan_url: '', plan: '## 1. ひとことで\n見本：海外で働きたい気持ちは強いが、お金の不安で一歩が出ない。\n## 2. お客様の今\n- ワーホリ中・カフェ勤務\n- 帰国時期は未確認\n## 4. 次の面談の進め方\n1. セミナーの感想を聞く\n2. **帰国時期**を確かめる' }, tabi2)),
     row(Object.assign({ applicant_id: 'tabi1demo05', name: '伊藤 あおい', start: at(1, 19), insta: 'mihon_aoi_abroad', appointer: '見本アポ ゆい' }, tabi1)),
     row({ applicant_id: 'ext_demo06', name: '森 りさ', start: at(3, 13), reminder: 'external', reminder_text: '自動（Zoom の案内のみ）', kind: 'external' }),
+    row({ applicant_id: 'demo10', name: '渡辺 ひかり', start: at(2, 20), stage: 'ロードマップ面談（2回目以降）', hearing: H2, hearing_kind: 'submitted', plan: PLAN2, plan_at: at(-1, 23, 30).slice(0, 16), plan_url: '' }),
+    row({ applicant_id: 'demo11', name: '松本 りょう', start: at(3, 19), hearing_kind: 'first', hearing_until: at(2, 19) }),
     row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています', resched_state: 'waiting', resched_since: at(-1, 10, 0), resched_until: at(2, 10, 0), hearing_kind: 'submitted' }),
     row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B' }),
     row(Object.assign({ applicant_id: 'tabi2demo09', name: 'mihon_nana_cafe', start: at(-3, 21), insta: 'mihon_nana_cafe', appointer: '見本アポ りな', past: '1', report: 'done', report_summary: '成約・区分A' }, tabi2))
