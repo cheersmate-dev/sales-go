@@ -812,6 +812,13 @@ function card(r) {
       '<label class="l">日時（変えるときだけ。空なら ' + esc(mdt(r.start)) + ' のまま）</label><input type="datetime-local" step="900" data-dt="m_' + esc(id) + '" value="' + esc(DT['m_' + id] || '') + '">' +
       '<button class="go" type="button" data-op="member"' + dis + '>担当を変える</button>' +
       '<div class="note">お客様の LINE へ「担当変更のお知らせ」が自動で届き、Zoom の案内も新しい担当のものに切り替わります。</div></div>';
+  } else if (r.reminder !== 'member') {
+    // 面談の時刻を過ぎた予約（一覧に残る6時間だけ）。古い画面と同じく、手動の日程変更・再開・取り消しを出す（2026-11-26 SHUHEY）
+    h += '<div class="act"><h3>すっぽかしのあと、日程を決め直したとき</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
+      '<button class="go" type="button" data-op="reschedule"' + dis + '>手動で日程変更した</button>' +
+      '<div class="note">お客様と新しい日時を決めたら、入れて押します。新しい日時でリマインドを組み直し、一覧も新しい日時になります（この回の報告は求めません）。面談の時刻から6時間たつと、この画面からは変えられなくなります。</div></div>';
+    if (r.reminder !== 'on' && r.manual_new_start) h += '<div class="act"><button class="go second" type="button" data-op="resume"' + dis + '>リマインドを再開する</button></div>';
+    if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
   }
   if (canReschedWait(r)) h += '<div class="act"><button class="go second" type="button" data-op="resched_wait"' + dis + '>日程変更待ちにする（報告しない）</button>' +
     '<div class="note">お客様と日程を決め直しているときに。報告を求めず「📅 日程変更待ち」と出します（期限は3日）。お客様には何も送りません。</div></div>';
@@ -1348,7 +1355,7 @@ const RULES = [
     '<li>面談が終わったあとの日程の相談は、自動返信しません。担当に Chatwork で届くので、返事をして2回目を登録してください。</li>' +
     '<li>旅キャリの2回目は<b>同じ担当</b>。担当の都合で1週間以上あくときは、べつの担当にかえます。</li>' +
     '<li>報酬は、<b>実際に面談した人</b>につきます。</li>' +
-    '<li><b>準備中</b>：面談の時間を過ぎてしまった予約の日程変更も、もうすぐ Sales GO! からできるようになります。</li>' +
+    '<li><b>面談の時間を過ぎてしまった予約</b>（すっぽかしなど）も、時間から6時間までは Sales GO! で日程を変えられます。面談のカードの「すっぽかしのあと、日程を決め直したとき」で「手動で日程変更した」を押します。6時間を過ぎたら「＋ UTAGEに無い予約を登録」で載せ直してください。</li>' +
     '</ul>'],
   ['❌ キャンセルのきまり',
     '<ul>' +
@@ -1640,7 +1647,10 @@ function demoData() {
     row({ applicant_id: 'demo10', name: '渡辺 ひかり', start: at(2, 20), stage: 'ロードマップ面談（2回目以降）', hearing: H2, hearing_kind: 'submitted', plan: PLAN2, plan_at: at(-1, 23, 30).slice(0, 16), plan_url: '' }),
     row({ applicant_id: 'demo11', name: '松本 りょう', start: at(3, 19), hearing_kind: 'first', hearing_until: at(2, 19) }),
     row({ applicant_id: 'demo07', name: '中村 だいき', start: at(5, 19, 30), reminder: 'off', reminder_text: '停止中', hold_text: '日程が決まるまで止めています', resched_state: 'waiting', resched_since: at(-1, 10, 0), resched_until: at(2, 10, 0), hearing_kind: 'submitted' }),
-    row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B' }),
+    // 時刻を過ぎた予約（一覧に残る6時間）の見本：手動で日程変更したが、その日時も過ぎた人（2026-11-26）
+    row({ applicant_id: 'demo12', name: '石井 ななみ', start: at(0, 9), manual_new_start: at(0, 11, 30), past: '1', report: 'needed', reminder: 'off', reminder_text: '止めている', hold_text: '手動で日程変更（UTAGEの予約は ' + mdt(at(0, 9)) + ' のまま）', stage: '面談時刻を過ぎた（参加状況は未記録）' }),
+    // 6時間を過ぎて控え（sgo_past）から出る行は can_operate が空（受け口と同じ）
+    row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B', can_operate: '', reminder: '', reminder_text: '' }),
     row(Object.assign({ applicant_id: 'tabi2demo09', name: 'mihon_nana_cafe', start: at(-3, 21), insta: 'mihon_nana_cafe', appointer: '見本アポ りな', past: '1', report: 'done', report_summary: '成約・区分A' }, tabi2))
   ];
   if (DEMO_ADMIN) meetings = meetings.concat([
@@ -1728,6 +1738,15 @@ function demoApi(action, body) {
       const r = DEMO_D.meetings.find(x => x.applicant_id === q.aid);
       if (r && q.op === 'hold') { r.reminder = 'off'; r.reminder_text = '停止中'; }
       if (r && q.op === 'resume') { r.reminder = 'on'; r.reminder_text = '配信中'; r.hold_text = ''; }
+      if (r && q.op === 'reschedule') {   // 受け口と同じ形：start は UTAGE の日時のまま、manual_new_start に新しい日時（過ぎた予約も時刻前に戻る）
+        r.manual_new_start = q.arg; r.past = ''; r.reminder = 'on'; r.reminder_text = '配信中';
+        r.hold_text = '手動で日程変更（UTAGEの予約は ' + mdt(r.start) + ' のまま）'; if (r.report === 'needed') r.report = '';
+      }
+      if (r && q.op === 'revert') {
+        r.manual_new_start = ''; r.hold_text = '';
+        if (parse(r.start) < demoNow()) { r.past = '1'; r.reminder = 'off'; r.reminder_text = '止めている'; if (!r.report) r.report = 'needed'; }
+        else { r.reminder = 'on'; r.reminder_text = '配信中'; }
+      }
       return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）' + ((OPS[q.op] || ['UTAGEに無い予約を登録'])[0]) + 'を受け付けました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
     }
     if (q.kind === 'status') return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）反映しました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
