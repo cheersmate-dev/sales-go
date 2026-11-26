@@ -206,6 +206,20 @@ label.check input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
 .badge.on { background: var(--okbg); color: var(--ok); }
 .badge.off { background: var(--stopbg); color: var(--stop); }
 .badge.warn { background: var(--badbg); color: var(--bad); }
+.badge.new { background: var(--yellow); color: #031147; font-weight: 900; }   /* 💬 新着コメント（2026-11-26 006） */
+/* ---- 面談カードのコメント（2026-11-26 006）：担当と管理者だけが見られる。新しい順 ---- */
+.cmt { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.cmt > h3 { margin: 0 0 8px; font-size: 14px; font-weight: 900; color: var(--head); display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; }
+.cmt > h3 small { font-size: 11px; font-weight: 700; color: var(--sub); }
+.cmt textarea { min-height: 72px; margin-bottom: 6px; }
+.cmt .cm-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.cm { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--soft); min-width: 0; }
+.cm.mine { background: var(--chip); }
+.cm.unread { border-color: var(--yellow); box-shadow: inset 3px 0 0 var(--yellow); }
+.cm-h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--sub); min-width: 0; flex-wrap: wrap; }
+.cm-h b { color: var(--ink); font-size: 13px; }
+.cm-h .del { margin-left: auto; border: 1px solid var(--line); background: var(--card); color: var(--bad); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; min-height: 32px; flex: none; }
+.cm p { margin: 4px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .actions { border-top: 1px solid var(--line); padding: 12px 14px; display: none; }
 .card.open .actions { display: block; }
 .actions h3 { font-size: 13px; margin: 0 0 6px; color: var(--sub); font-weight: 700; }
@@ -372,7 +386,7 @@ details.faq .a .disc { margin-top: 8px; }
 <nav class="tabbar" aria-label="画面の切り替え">
   <div class="tabbar-in">
     <button class="tab" type="button" data-tab="today" aria-selected="true">今日<span class="badge" data-badge="today" hidden></span></button>
-    <button class="tab" type="button" data-tab="meet" aria-selected="false">面談</button>
+    <button class="tab" type="button" data-tab="meet" aria-selected="false">面談<span class="badge" data-badge="meet" hidden></span></button>
     <button class="tab" type="button" data-tab="report" aria-selected="false">報告<span class="badge" data-badge="report" hidden></span></button>
     <button class="tab" type="button" data-tab="num" aria-selected="false">数字</button>
     <button class="tab" type="button" data-tab="docs" aria-selected="false">資料</button>
@@ -532,6 +546,7 @@ function render() {
   const need = rowsVis().filter(r => r.report === 'needed').length;
   const today = rowsVis().filter(r => String(r.start).slice(0, 10) === D.today && r.past !== '1').length;
   setBadge('report', need); setBadge('today', today);
+  setBadge('meet', rowsVis().reduce((n, r) => n + (+r.comments_unread || 0), 0));   // 自分以外からの未読コメント（2026-11-26 006）
 }
 function setBadge(k, n) { const b = $('[data-badge="' + k + '"]'); b.hidden = !n; b.textContent = n; }
 
@@ -727,6 +742,53 @@ function prepHtml(r) {
     '<button type="button" data-prep="p" class="' + (tab === 'p' ? 'on' : '') + '" aria-pressed="' + (tab === 'p') + '">🗒 作戦会議<small>（' + (r.plan ? 'あり' : 'なし') + '）</small></button></div>' +
     '<div class="pbody">' + (tab === 'p' ? planPane(r) : hearingPane(r)) + '</div></div>';
 }
+// ---- 面談カードのコメント（2026-11-26 006 SHUHEY）：Chatwork でやっていた「この人どうなってる？」を面談ごとに ----
+// 中身は受け口のスプレッドシート（sgo_comments）だけに保存（このページには書かない）。見た時刻も受け口に人ごとに覚えるので、別の端末で開いても新着は消える
+const CMTD = {}, CMTW = {}, CMT_SEEN = {};   // 書きかけ（描き直しても消さない）・送っている途中／失敗・開いたときの未読の数（強調用）
+function cmtName(by) { return honor(by); }
+function cmtHtml(r) {
+  const id = r.applicant_id, list = r.comments || [], w = CMTW[id];
+  let h = '<div class="cmt"><h3>💬 コメント<small>担当と管理者（SHUHEY・YUSUKE先生）だけが見られます</small></h3>' +
+    '<textarea data-cmt="' + esc(id) + '" maxlength="1000" aria-label="コメント" placeholder="例：この方、ご家族の反対が強いです。次の進め方を相談したいです">' + esc(CMTD[id] || '') + '</textarea>' +
+    '<button class="go" type="button" data-cmt-send="' + esc(id) + '"' + (w && w.cls === 'wait' ? ' disabled' : '') + '>' + (w && w.cls === 'wait' ? '送っています…' : 'コメントを送る') + '</button>';
+  if (w && w.cls !== 'wait') h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
+  let hot = CMT_SEEN[id] || 0;   // 開いたときの未読の数だけ、自分以外の新しいものから強調する
+  h += list.length ? '<div class="cm-list">' + list.map(c => {
+    const un = !c.mine && hot > 0; if (un) hot--;
+    return '<div class="cm' + (c.mine ? ' mine' : '') + (un ? ' unread' : '') + '"><div class="cm-h"><b>' + esc(cmtName(c.by)) + (c.mine ? '（自分）' : '') + '</b><span>' + esc(mdt(c.at)) + '</span>' +
+      (un ? '<span class="badge new">新着</span>' : '') + (c.mine ? '<button type="button" class="del" data-cmt-del="' + esc(c.id) + '">消す</button>' : '') + '</div><p>' + esc(c.body) + '</p></div>';
+  }).join('') + '</div>' : '<div class="note">まだコメントはありません。相手から3時間返信が無いときは Chatwork でお知らせします（夜0〜7時は数えません）。</div>';
+  return h + '</div>';
+}
+function cmtOpened(id) {   // カードを開いたら既読にする（受け口に人ごとに覚える）
+  const r = meetingById(id); if (!r || !(+r.comments_unread)) return;
+  CMT_SEEN[id] = +r.comments_unread; r.comments_unread = 0; render();
+  api('comment_seen', { applicant_id: id }).then(j => { if (!j.ok && j.error !== 'off') toast(errMsg(j)); });
+}
+async function sendCmt(id) {
+  const body = String(CMTD[id] || '').trim();
+  if (!body) { CMTW[id] = { cls: 'ng', text: 'コメントを書いてください' }; renderMeet(); return; }
+  CMTW[id] = { cls: 'wait' }; renderMeet();
+  const j = await api('comment', { applicant_id: id, body, client_id: cid('cm') });
+  if (!j.ok) { CMTW[id] = { cls: 'ng', text: errMsg(j) }; renderMeet(); return; }
+  const r = meetingById(id); if (r) { r.comments = j.comments || []; r.comments_unread = 0; }
+  delete CMTW[id]; CMTD[id] = ''; CMT_SEEN[id] = 0; render(); toast('コメントを送りました');
+}
+function askCmtDel(cmId) {
+  const r = rowsAll().find(x => (x.comments || []).some(c => c.id === cmId)); if (!r) return;
+  const c = r.comments.find(x => x.id === cmId), body = String(c.body || '');
+  openSheet('<div class="sh-top"><h3>コメントを消す</h3><button class="x" type="button" data-close>閉じる</button></div>' +
+    '<div class="cm mine"><div class="cm-h"><b>' + esc(cmtName(c.by)) + '（自分）</b><span>' + esc(mdt(c.at)) + '</span></div><p>' + esc(body.slice(0, 200)) + (body.length > 200 ? '…' : '') + '</p></div>' +
+    '<div class="note" style="margin:8px 0">消すと、担当・管理者の画面から見えなくなります（元に戻せません）。</div>' +
+    '<div class="act"><button class="go undo" type="button" id="cmDelGo">消す</button></div>', 'cmdel');
+  $('#cmDelGo').onclick = async () => {
+    $('#cmDelGo').disabled = true;
+    const j = await api('comment_del', { id: cmId });
+    closeSheet();
+    if (!j.ok) { toast(errMsg(j)); return; }
+    r.comments = j.comments || []; render(); toast('コメントを消しました');
+  };
+}
 function tabiLocked(r) { return r.project === '旅キャリ' && !(D.features && D.features.op_tabi && r.can_operate === '1'); }
 function card(r) {
   const id = r.applicant_id, w = WATCH[id], busy = !!r.busy || (w && w.cls === 'wait');
@@ -741,8 +803,10 @@ function card(r) {
   if (r.report === 'sending') b += '<span class="badge">報告を処理中</span>';
   if (r.report === 'done') b += '<span class="badge on">報告済み' + (r.report_summary ? '：' + esc(r.report_summary) : '') + '</span>';
   if (r.plan) b += '<span class="badge on">🗒 作戦会議あり</span>';
+  if (+r.comments_unread) b += '<span class="badge new">💬 新着コメント ' + (+r.comments_unread) + '</span>';   // 2026-11-26 006
+  else if ((r.comments || []).length) b += '<span class="badge">💬 コメント ' + r.comments.length + '</span>';
   let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
-    '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div>' + prepSummary(r) + '</div><div class="actions">' + prepHtml(r);   // 面談の準備をいちばん上に（2026-11-26 SHUHEY）
+    '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div>' + prepSummary(r) + '</div><div class="actions">' + prepHtml(r) + cmtHtml(r);   // 面談の準備をいちばん上に（2026-11-26 SHUHEY）・その下にコメント（006）
   const dis = busy ? ' disabled' : '';
   if (r.talk_url) h += '<div class="act"><a class="go second" style="display:block;text-align:center;text-decoration:none" href="' + esc(r.talk_url) + '" target="_blank" rel="noopener noreferrer">💬 LINEトークを開く（1対1）</a></div>';   // 2026-11-26 SHUHEY
   if (r.project === '旅キャリ') {
@@ -1402,7 +1466,7 @@ document.addEventListener('click', e => {
   const tb = t.closest('[data-tab]'); if (tb) { showTab(tb.dataset.tab); return; }
   const gr = t.closest('[data-go-report]'); if (gr) { startReport(gr.dataset.goReport); return; }
   const gm = t.closest('[data-go-meet]'); if (gm) {
-    const id = gm.dataset.goMeet; OPEN = id; FP = ''; showTab('meet');
+    const id = gm.dataset.goMeet; OPEN = id; FP = ''; showTab('meet'); cmtOpened(id);
     const el = $('.card[data-id="' + CSS.escape(id) + '"]'); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
     return;
   }
@@ -1431,11 +1495,15 @@ document.addEventListener('click', e => {
   const al = t.closest('[data-all]'); if (al) { NUM_ALL = al.dataset.all === '1'; NUM_I = 0; renderNum(); return; }
   const fq = t.closest('[data-faq]'); if (fq) { faqToChat(+fq.dataset.faq); return; }
   const rt = t.closest('[data-retry]'); if (rt) { askBot(+rt.dataset.retry); return; }
-  const row = t.closest('.card .row'); if (row) { const id = row.parentNode.dataset.id; OPEN = OPEN === id ? '' : id; renderMeet(); return; }
+  const cs = t.closest('[data-cmt-send]'); if (cs) { sendCmt(cs.dataset.cmtSend); return; }   // コメント（2026-11-26 006）
+  const cd = t.closest('[data-cmt-del]'); if (cd) { askCmtDel(cd.dataset.cmtDel); return; }
+  if (t.closest('.cmt')) return;   // コメント欄の中を押してもカードを閉じない
+  const row = t.closest('.card .row'); if (row) { const id = row.parentNode.dataset.id; OPEN = OPEN === id ? '' : id; renderMeet(); if (OPEN) cmtOpened(OPEN); return; }
 });
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.dt != null) DT[t.dataset.dt] = t.value;
+  if (t.dataset.cmt != null) { CMTD[t.dataset.cmt] = t.value; if (CMTW[t.dataset.cmt] && CMTW[t.dataset.cmt].cls === 'ng') delete CMTW[t.dataset.cmt]; }   // コメントの書きかけ（006）
   if (t.dataset.f && REP) { REP.f[t.dataset.f] = t.value; saveDraft(); recheck(); }
   if (t.id === 'faqQ') { FAQ_Q = t.value; $('#faqList').innerHTML = faqHtml(); }
 });
@@ -1500,6 +1568,17 @@ function demoData() {
     row(Object.assign({ applicant_id: 'tabi1demo22', name: '吉田 まい', start: at(1, 11), member: 'NAO', insta: 'mihon_mai_walk', appointer: '見本アポ ゆい' }, tabi1)),
     row({ applicant_id: 'demo23', name: '山田 こうき', start: at(2, 20), member: 'RYO' })
   ]);
+  // 面談カードのコメントの見本（2026-11-26 006・架空）。new＝まだ見ていない（自分以外のものだけ新着に数える）
+  const ME = DEMO_CMT_ME();
+  const mkc = (by, t, body, isNew) => ({ id: 'demo-cm-' + Math.random().toString(36).slice(2, 10), at: t, by, role: by === 'SHUHEY' || by === 'YUSUKE' ? 'admin' : 'member', body, mine: by === ME, _new: !!isNew });
+  const CM = {
+    demo03: [mkc('SHUHEY', at(0, 11, 40), '見本：ヒアリングを見ると、派遣の契約更新が一番の不安みたいです。今日は最初に更新の時期を聞いてみてください', true)],
+    demo10: [mkc('YUSUKE', at(-1, 18, 5), '見本：奥さまも同席できるか聞いてみましょう。家族向けの説明の資料はこちらで用意します'),
+      mkc('MIKA', at(-1, 16, 30), '見本：前回は奥さまと相談すると持ち帰りでした。次の面談の進め方を相談したいです')],
+    demo08: [mkc('MIKA', at(-2, 21, 10), '見本：検討中。来週の日曜に電話の約束をしました\n家族の反応を聞いてから決めるそうです')],
+    demo21: [mkc('RYO', at(0, 12, 20), '見本：不参加でした。LINE で日程を聞き直しています', true)]
+  };
+  meetings.forEach(r => { const l = CM[r.applicant_id] || []; r.comments = l; r.comments_unread = l.filter(c => !c.mine && c._new).length; });
   const ym = n => { const d = new Date(now.getFullYear(), now.getMonth() - n, 1); return d.getFullYear() + '-' + p2(d.getMonth() + 1); };
   const mk = (n, done, won, A, B, C, Dd, none, ad) => ({ ym: ym(n), done, won, rate: 0, ranks: { A, B, C, D: Dd, none }, by_project: { '広告': { done: ad[0], won: ad[1] }, '旅キャリ': { done: done - ad[0], won: won - ad[1] } } });
   const months = [mk(0, 9, 3, 3, 2, 2, 1, 1, [5, 2]), mk(1, 11, 3, 4, 3, 2, 1, 1, [7, 2]), mk(2, 8, 2, 2, 3, 1, 1, 1, [8, 2]), mk(3, 10, 3, 3, 3, 2, 1, 1, [10, 3]), mk(4, 7, 1, 1, 2, 2, 1, 1, [7, 1]), mk(5, 6, 1, 1, 2, 1, 1, 1, [6, 1])];
@@ -1538,6 +1617,7 @@ function demoData() {
     } : undefined
   };
 }
+function DEMO_CMT_ME() { return DEMO_ADMIN ? 'SHUHEY' : 'MIKA'; }   // 見本で「自分」として書く名前
 function demoWill(m, p) {
   const out = [], tabi = m.project === '旅キャリ', s = tabi ? TABI[p.result] : AD[p.result];
   const insta = instaKey(m.insta || p.insta);
@@ -1566,6 +1646,17 @@ function demoApi(action, body) {
     return Promise.resolve({ ok: true, id, will: demoWill(m, body.report) });
   }
   if (action === 'op') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'op', op: body.op, aid: body.applicant_id, arg: body.arg }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'comment' || action === 'comment_del' || action === 'comment_seen') {   // コメント（2026-11-26 006）：見本の画面の中だけで足す・消す
+    const r = action === 'comment_del' ? DEMO_D.meetings.find(x => (x.comments || []).some(c => c.id === body.id)) : DEMO_D.meetings.find(x => x.applicant_id === body.applicant_id);
+    if (!r) return Promise.resolve({ ok: false, error: 'state' });
+    if (action === 'comment') {
+      const t = String(body.body || '').trim(); if (!t) return Promise.resolve({ ok: false, error: 'input', message: 'コメントを書いてください' });
+      r.comments = [{ id: 'demo-cm-' + Math.random().toString(36).slice(2, 10), at: stamp(demoNow()), by: DEMO_CMT_ME(), role: DEMO_ADMIN ? 'admin' : 'member', body: t, mine: true }].concat(r.comments || []);
+    }
+    if (action === 'comment_del') r.comments = r.comments.filter(c => c.id !== body.id);
+    r.comments_unread = 0; (r.comments || []).forEach(c => { c._new = false; });
+    return Promise.resolve({ ok: true, comments: JSON.parse(JSON.stringify(r.comments || [])), unread: 0 });
+  }
   if (action === 'ask') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'ask', q: body.q }; return Promise.resolve({ ok: true, id }); }
   if (action === 'status') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'status' }; return Promise.resolve({ ok: true, id }); }
   if (action === 'request') {
@@ -1597,7 +1688,7 @@ else {
   load().then(() => {
     if (!D) return;
     showTab(TAB);
-    if (DEMO && params.get('open')) { OPEN = params.get('open'); renderMeet(); }
+    if (DEMO && params.get('open')) { OPEN = params.get('open'); renderMeet(); if (!params.get('keepnew')) cmtOpened(OPEN); }
     if (DEMO && params.get('report')) startReport(params.get('report'));
     if (DEMO && params.get('bot') === '1') openBot();
   });
