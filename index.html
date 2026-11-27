@@ -1327,6 +1327,10 @@ function adminHtml() {
   const un = (a.unreported || []).slice().sort((x, y) => String(y.start).localeCompare(String(x.start)));
   h += '<div class="sec-h"><h2>報告がまだの面談</h2><span class="hint">' + un.length + '件</span></div>' + (un.length ? '<div class="tw"><table class="t"><tr><th class="l">面談</th><th class="l">お客様</th><th class="l">担当</th></tr>' +
     un.map(x => '<tr><td class="l num">' + esc(mdt(x.start)) + '</td><td class="l">' + esc(x.name) + '<small>' + esc(x.project) + '</small></td><td class="l">' + esc(x.member) + '</td></tr>').join('') + '</table></div>' : '<div class="empty">ありません</div>');
+  // 登録漏れかも：日程が決まっていそうなのに Sales GO! に予約が無い人（2026-11-27 子009・Mac mini が見つけて Chatwork にも知らせる・予約が入ると消える）
+  const ub = (a.unbooked || []).slice().sort((x, y) => String(y.noticed_at).localeCompare(String(x.noticed_at)));
+  h += '<div class="sec-h"><h2>登録漏れかも</h2><span class="hint">' + ub.length + '件・予約が入ると消えます</span></div>' + (ub.length ? '<div class="tw"><table class="t"><tr><th class="l">気づいた</th><th class="l">お客様（LINE名）</th><th class="l">面談</th><th class="l">担当</th></tr>' +
+    ub.map(x => '<tr><td class="l num">' + esc(mdt(x.noticed_at)) + '</td><td class="l">' + esc(x.label || 'LINE名不明') + '<small>' + (x.kind === 'B' ? 'LINEで日時を案内・予約なし' : 'ヒアリング回答あり・予約なし') + '</small></td><td class="l num">' + (x.meeting ? esc(mdt(x.meeting)) : '未定') + '</td><td class="l">' + (x.member ? '<span style="white-space:nowrap">' + esc(x.member) + (x.kind === 'B' ? '？' : '') + '</span>' : '不明') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">ありません</div>');
   return h;
 }
 
@@ -1720,7 +1724,9 @@ function demoData() {
       table: [].concat(...[0, 1, 2].map(n => [['MIKA', '広告', 5, 2], ['MIKA', '旅キャリ', 4, 1], ['RYO', '広告', 6, 1], ['RYO', '旅キャリ', 2, 0], ['NAO', '広告', 3, 1], ['NAO', '旅キャリ', 5, 2], ['KEN', '広告', 4, 1], ['KEN', '旅キャリ', 0, 0]]
         .map(([m, p, d, w]) => ({ project: p, member: m, ym: ym(n), done: Math.max(0, d - n), won: Math.max(0, w - (n % 2)) })))),
       rank_rates: [{ rank: 'A', done: 14, won: 9 }, { rank: 'B', done: 12, won: 4 }, { rank: 'C', done: 9, won: 1 }, { rank: 'D', done: 8, won: 0 }],
-      unreported: meetings.filter(r => r.report === 'needed').map(r => ({ applicant_id: r.applicant_id, name: r.name, start: r.start, member: r.member, project: r.project }))
+      unreported: meetings.filter(r => r.report === 'needed').map(r => ({ applicant_id: r.applicant_id, name: r.name, start: r.start, member: r.member, project: r.project })),
+      unbooked: [{ key: 'B:demo1', kind: 'B', label: 'みほん★', member: 'MIKA', meeting: at(1, 19, 0), signal_at: at(-1, 12, 9), noticed_at: at(-1, 12, 40), stage: 's1' },
+        { key: 'A:demo2', kind: 'A', label: 'さんぷる', member: '', meeting: '', signal_at: at(0, 6, 30), noticed_at: at(0, 7, 0), stage: 's1' }]
     } : undefined
   };
 }
