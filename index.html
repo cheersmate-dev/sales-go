@@ -167,6 +167,13 @@ label.check input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
 .result.wait { background: var(--chip); }
 .result.ok { background: var(--okbg); color: var(--ok); }
 .result.ng { background: var(--badbg); color: var(--bad); }
+.result.dup { background: var(--stopbg); color: var(--ink); border-left: 4px solid var(--stop); }   /* 二重送信で止めた（2026-11-27 子008） */
+.result b.rt { display: block; font-size: 14px; margin-bottom: 2px; }
+.result.wait b.rt::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: sgospin .8s linear infinite; }
+@keyframes sgospin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .result.wait b.rt::before { animation: none; } }
+.paybtn[disabled] { opacity: .45; cursor: default; }
+.paybtn.sending { opacity: 1; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* ---- 今日 ---- */
 .hero { border-radius: 14px; padding: 16px; color: #fff; background: linear-gradient(135deg, var(--hero1), var(--hero2)); }
@@ -802,7 +809,8 @@ function card(r) {
       if (r.manual_new_start) h += '<div class="act"><button class="go undo" type="button" data-op="revert"' + dis + '>手動の日程変更を取り消す</button></div>';
     }
     h += '<div class="act"><a class="go" style="display:block;text-align:center;text-decoration:none" href="https://app.hellosign.com/account/logIn" target="_blank" rel="noopener noreferrer">契約書を送る（Dropbox Sign を開く）</a><div class="note">ログイン情報は Discord の「契約書送付のDropboxサイン」にあります。件名は「【氏名 様】◯◯プラン契約書（NNN万円）」、CC は info@cheersmate11.com。</div></div>';
-    if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act"><h3>LINEで送る</h3><div class="paygrid">' + (D.tpls).map(t => '<button type="button" class="paybtn" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(t.title) + '</button>').join('') + '</div><div class="note">押すと、送る中身を確かめる画面が出ます。</div></div>';
+    if ((D.features || {}).line === 'on' && (D.tpls || []).length) h += '<div class="act" id="line-' + esc(id) + '"><h3>LINEで送る</h3><div class="paygrid">' + (D.tpls).map(t => '<button type="button" class="paybtn' + (w && w.kind === 'line' && w.cls === 'wait' && w.tpl === t.title ? ' sending' : '') + '" data-tpl="' + esc(t.title) + '"' + dis + '>' + esc(w && w.kind === 'line' && w.cls === 'wait' && w.tpl === t.title ? '送信中…' : t.title) + '</button>').join('') + '</div>' +
+      (w && w.kind === 'line' ? lineResult(w) : '<div class="note">押すと、送る中身を確かめる画面が出ます。</div>') + '</div>';   // 結果はボタンのすぐ下に（2026-11-27 子008：カードのいちばん下だと見えなかった）
     if (r.project !== '旅キャリ' && r.reminder !== 'external') h += '<div class="act"><button class="go undo" type="button" data-cancel="1"' + dis + '>この面談をキャンセルにする</button><div class="note">お客様からキャンセルの連絡があったときに。UTAGEの予約をキャンセルにして、カレンダーと顧客マスターも直します。お客様には何も送りません。</div></div>';   // 2026-11-26 SHUHEY
     h += '<div class="act"><button class="go second" type="button" data-mute="' + (r.muted === '1' ? '0' : '1') + '"' + dis + '>' + (r.muted === '1' ? '自動返信を再開する' : 'このお客様の自動返信を止める') + '</button>' +
       '<div class="note">' + (r.muted === '1' ? 'いまはLINEの自動返信を止めています。届いた連絡は Chatwork で担当に知らせます。' : '自分でやり取りしたいお客様は、押すとLINEの自動返信（日程変更の案内など）が止まります。') + '</div></div>';
@@ -822,7 +830,7 @@ function card(r) {
   }
   if (canReschedWait(r)) h += '<div class="act"><button class="go second" type="button" data-op="resched_wait"' + dis + '>日程変更待ちにする（報告しない）</button>' +
     '<div class="note">お客様と日程を決め直しているときに。報告を求めず「📅 日程変更待ち」と出します（期限は3日）。お客様には何も送りません。</div></div>';
-  if (w) h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
+  if (w && w.kind !== 'line') h += '<div class="result ' + w.cls + '">' + esc(w.text) + '</div>';
   else if (r.busy) h += '<div class="result wait">処理中です…</div>';
   return h + '</div></div>';
 }
@@ -955,13 +963,31 @@ function askLine(id, title) {
     '<div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="lineYes">送る</button></div>');
   $('#lineYes').onclick = () => { closeSheet(); sendLine(id, title); };
 }
+// 「LINEで送る」の見え方（2026-11-27 子008）：押した瞬間に「受け付けています」→「受け付けました・送信中」→「送りました」／止めた（黄）／送れませんでした（赤）。
+// 待っている間はこのお客様のボタンを押せない。結果は LINEで送る のすぐ下に出す。
+const LINE_TIMEOUT_TEXT = '3分たっても結果が返ってきません。送れている場合があるので、もう一度押したり UTAGE から手で送ったりする前に、「💬 LINEトークを開く」で届いているか確かめてください。';
+function lineResult(w) {
+  const t = { wait: w.title || '送信中…', ok: '送りました', dup: '送るのを止めました（二重送信の防止）', ng: '送れませんでした' }[w.cls] || '';
+  return '<div class="result ' + w.cls + '" role="status" aria-live="polite"><b class="rt">' + esc(t) + '</b>' + esc(w.text || '') + '</div>';
+}
+function lineShow(id) {
+  render();
+  const el = document.getElementById('line-' + id);
+  if (el && el.scrollIntoView) { const r = el.getBoundingClientRect(); if (r.bottom > innerHeight || r.top < 0) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+const isDupText = s => /二重送信|送っています|送られています|処理中です/.test(s || '');
 async function sendLine(id, tpl) {
-  WATCH[id] = { cls: 'wait', text: '受け付けました。1分ほどで送ります…' }; render();
+  const t0 = Date.now();
+  WATCH[id] = { cls: 'wait', kind: 'line', tpl, title: '受け付けています…', text: '「' + tpl + '」' }; lineShow(id);
   const j = await api('line', { client_id: cid('l'), applicant_id: id, tpl });
-  if (!j.ok) { WATCH[id] = { cls: 'ng', text: errMsg(j) }; render(); return; }
+  if (!j.ok) { const m = errMsg(j); WATCH[id] = { cls: j.error === 'state' && isDupText(m) ? 'dup' : 'ng', kind: 'line', tpl, text: m }; lineShow(id); return; }
+  WATCH[id] = { cls: 'wait', kind: 'line', tpl, title: '受け付けました・送信中…', text: '「' + tpl + '」をお客様のLINEへ送っています。ふつう10秒ほどで終わります。この画面のまま待ってください（UTAGEから手で送らないでください）。' }; lineShow(id);
   poll(j.id, q => {
-    WATCH[id] = q.status === 'timeout' ? { cls: 'ng', text: TIMEOUT_TEXT } : { cls: q.status === 'done' ? 'ok' : 'ng', text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
-    render();
+    if (q.status === 'timeout') WATCH[id] = { cls: 'ng', kind: 'line', tpl, text: LINE_TIMEOUT_TEXT };
+    else if (q.status === 'done') WATCH[id] = { cls: 'ok', kind: 'line', tpl, text: (q.result_title || '') + '\n' + (q.result_lines || '') + '（' + Math.max(1, Math.round((Date.now() - t0) / 1000)) + '秒）' };
+    else if (q.status === 'refused' && isDupText(q.result_title + q.result_lines)) WATCH[id] = { cls: 'dup', kind: 'line', tpl, text: q.result_lines || q.result_title || '' };
+    else WATCH[id] = { cls: 'ng', kind: 'line', tpl, text: (q.result_title ? q.result_title + '\n' : '') + (q.result_lines || '') };
+    lineShow(id);
   });
 }
 function askCancel(id) {   // 手動キャンセル（2026-11-26 SHUHEY）
@@ -1609,6 +1635,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // ---- 見本（?demo=1）：架空の名前と数字。どこにも記録しない（&admin=1 で管理者の見本） ----
 let DEMO_D = null;
 const DEMO_REQ = {};
+const DEMO_LINE = {};   // 見本の「LINEで送る」：お客様|テンプレ → {busy, at}（2026-11-27 子008）
 // 見本の時計は「今日の13時」に固定（開いた時刻で見え方が変わらないように）
 function demoNow() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 13, 0); }
 function demoData() {
@@ -1669,7 +1696,10 @@ function demoData() {
     ok: true, now: stamp(now), today: ymd(now),
     user: { name: me, role: DEMO_ADMIN ? 'admin' : 'member', member: mine },
     members: DEMO_ADMIN ? ['MIKA', 'RYO', 'NAO', 'KEN'] : ['MIKA', 'RYO', 'NAO', 'KEN'],
-    features: { report_ad: 'on', report_tabi: 'on', op_tabi: false, bot: 'on' },
+    features: { report_ad: 'on', report_tabi: 'on', op_tabi: false, bot: 'on', line: 'on' },
+    tpls: [{ title: '概要書面の送付はこちら', preview: '（見本）書類のご案内方法（電子交付）について…\n→ 押すと送れます。10分以内にもう一度押すと止まります' },
+      { title: '滋賀銀行の教育ローン', preview: '（見本）教育ローンのご案内…\n→ 見本では「UTAGEから手で送ってあった」ときの止まり方を出します' },
+      { title: '楽天カードの利用制限解除について', preview: '（見本）→ 見本では「送れなかった」ときの表示を出します' }],
     meta: { list_updated_at: at(0, now.getHours(), Math.floor(now.getMinutes() / 10) * 10), tabi_updated_at: '', stale: '' },
     meetings, busy: { KAZUKI: [at(1, 12, 0)], YUSUKE: [], HIROE: [at(1, 13, 0)], SAKI: [], YURIE: [at(1, 12, 0)], SHUHEY: [] }, priority: [['KAZUKI', 'YUSUKE', 'HIROE'], ['SAKI', 'YURIE'], ['SHUHEY']],
     todo: [{ level: 'warn', text: 'ヒアリングシートがまだです（今日 20:00・田中 けんたさん）', applicant_id: 'demo03' },
@@ -1726,6 +1756,14 @@ function demoApi(action, body) {
   if (action === 'op') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'op', op: body.op, aid: body.applicant_id, arg: body.arg }; return Promise.resolve({ ok: true, id }); }
   if (action === 'ask') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'ask', q: body.q }; return Promise.resolve({ ok: true, id }); }
   if (action === 'status') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'status' }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'line') {   // 受け口と同じ止め方：同じお客様・同じテンプレが処理中／10分以内に送った（2026-11-27 子008）
+    const k = body.applicant_id + '|' + body.tpl, last = DEMO_LINE[k];
+    if (last && last.busy) return Promise.resolve({ ok: false, error: 'state', message: 'このお客様への「' + body.tpl + '」は送信の処理中です。終わるまでお待ちください（もう一度押したり、UTAGE から手で送ったりしないでください）' });
+    if (last && Date.now() - last.at < 600e3) return Promise.resolve({ ok: false, error: 'state', message: 'このお客様には ' + hm(stamp(new Date(last.at))) + ' に「' + body.tpl + '」を送っています。同じものが2回届かないよう、10分あけてください' });
+    const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'line', k, tpl: body.tpl, aid: body.applicant_id };
+    if (!/滋賀|楽天/.test(body.tpl)) DEMO_LINE[k] = { busy: true, at: 0 };
+    return new Promise(res => setTimeout(() => res({ ok: true, id }), 600));
+  }
   if (action === 'request') {
     const q = DEMO_REQ[body.id]; if (!q) return Promise.resolve({ ok: false, error: 'state' });
     if (Date.now() - q.t < 2200) return Promise.resolve({ ok: true, request: { id: body.id, status: 'running' } });
@@ -1750,6 +1788,13 @@ function demoApi(action, body) {
       return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）' + ((OPS[q.op] || ['UTAGEに無い予約を登録'])[0]) + 'を受け付けました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
     }
     if (q.kind === 'status') return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）反映しました', result_lines: '見本なので、実際にはどこにも書いていません。' } });
+    if (q.kind === 'line') {
+      const r = DEMO_D.meetings.find(x => x.applicant_id === q.aid) || {}, nm = (r.name || '') + 'さん';
+      if (/楽天/.test(q.tpl)) return Promise.resolve({ ok: true, request: { id: body.id, status: 'error', result_title: '反映できませんでした（要確認）', result_lines: '（見本）送れなかったときの表示です。UTAGE につながりませんでした。' } });
+      if (/滋賀/.test(q.tpl)) return Promise.resolve({ ok: true, request: { id: body.id, status: 'refused', result_title: '送っていません（二重送信の防止）', result_lines: '（見本）' + nm + 'には ' + hm(stamp(new Date(q.t - 25e3))) + ' に「' + q.tpl + '」が送られています（UTAGEの送信履歴）。同じものが2回届かないよう止めました。10分たってからなら、もう一度押すと送れます' } });
+      DEMO_LINE[q.k] = { busy: false, at: Date.now() };
+      return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', result_title: '（見本）「' + q.tpl + '」を送りました', result_lines: '見本なので、実際には送っていません。' } });
+    }
     if (/失敗/.test(q.q)) return Promise.resolve({ ok: true, request: { id: body.id, status: 'error', result_title: '答えを作れませんでした', result_lines: '（見本）失敗したときの表示です。' } });
     return Promise.resolve({ ok: true, request: { id: body.id, status: 'done', answer: '（見本の答え）本番では、営業Q&A正ナレッジとあなたの案件をもとに答えます。\n値引きや支払条件の個別のご相談は、会社へ引き継いでください。', sources: ['営業Q&A正ナレッジ（見本）'] } });
   }
