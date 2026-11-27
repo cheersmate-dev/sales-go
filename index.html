@@ -1004,18 +1004,26 @@ function openExt() {
     '<label class="l" for="exNote">メモ（任意）</label><input type="text" id="exNote" maxlength="200" autocomplete="off">' +
     '<label class="check"><input type="checkbox" id="exSecond"> 2回目以降の面談（1回目を済ませた人と、担当が日程を決めた）</label>' +
     '<ul class="items" id="exList"></ul><div class="row2"><button class="go second" type="button" data-close>やめる</button><button class="go" type="button" id="exYes">登録する</button></div>');
+  // 過去の日時（いま＋5分より前）は「過去の面談として記録だけ」：お客様へは何も送らない（2026-11-27 SHUHEY）
+  const isPast = () => { const d = parse($('#exStart').value); return !!d && d <= new Date(nowD().getTime() + 300000); };
+  let pastOk = false;
   const list = () => {
-    $('#exList').innerHTML = ($('#exSecond').checked
+    pastOk = false; $('#exYes').textContent = '登録する';
+    const past = isPast();
+    $('#exList').innerHTML = (past
+      ? ['⚠️ 過去の日時です。過去の面談として記録だけ登録します', '一覧・顧客マスター' + ($('#exSecond').checked ? '（1回目の日時・結果はそのまま・記録を1件足す）' : '') + 'に載せ、報告ができるようにします', 'お客様の LINE へは何も送りません（予約確定・ヒアリングシート・Zoom の案内・リマインドなし）。カレンダーにも入れません']
+      : $('#exSecond').checked
       ? ['一覧とカレンダー（「2回目以降」付き）に載せます', '顧客マスターは1回目の日時・結果をそのままにします', 'お客様の LINE へ自動で送るのは Zoom の案内だけです']
       : ['一覧・顧客マスター・カレンダーに載せます', 'お客様の LINE へ予約確定のお知らせ・ヒアリングシート・Zoom の案内を自動で送ります']).map(s => '<li>' + esc(s) + '</li>').join('');
   };
-  list(); $('#exSecond').onchange = list;
+  list(); $('#exSecond').onchange = list; $('#exStart').onchange = list; $('#exStart').oninput = list;
   $('#exYes').onclick = async () => {
     const name = $('#exName').value.replace(/\s+/g, ' ').trim(), v = $('#exStart').value, line = $('#exLine').value.trim();
     if (!name) { toast('氏名を入れてください'); return; }
     if (!v) { toast('面談の日時を入れてください'); return; }
-    if (parse(v) <= nowD()) { toast('面談の日時が過去になっています'); return; }
+    if (parse(v) < new Date(nowD().getTime() - 14 * 86400000)) { toast('14日より前の面談は登録できません'); return; }
     if (!/\/line\/talk#[A-Za-z0-9]{3,24}\s*$/.test(line)) { toast('LINE の1対1トークのURL（…/line/talk#…）を貼ってください'); return; }
+    if (isPast() && !pastOk) { list(); pastOk = true; $('#exYes').textContent = '過去の面談として登録する'; toast('過去の日時です。お客様へは送らず記録だけ登録します。よければもう一度押してください'); return; }
     const d = { name, start: v.replace('T', ' ').slice(0, 16), member: $('#exMember').value, line_name: line, note: $('#exNote').value.trim(), second: $('#exSecond').checked };
     closeSheet();
     WATCH._ext = { cls: 'wait', text: name + 'さんの登録を受け付けました。実行しています…（20〜60秒かかります）' }; render();
