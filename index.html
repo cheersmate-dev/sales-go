@@ -435,6 +435,7 @@ const ls = {
 const params = new URLSearchParams(location.search);
 const DEMO = params.has('demo');
 const DEMO_ADMIN = DEMO && params.get('admin') === '1';
+const DEMO_TABI = DEMO && params.get('tabi') === '1';
 if (DEMO && params.get('theme')) document.documentElement.dataset.theme = params.get('theme');
 let KEY = '';
 (() => {
@@ -783,7 +784,17 @@ function card(r) {
   if (r.past === '1' || r.report === 'needed' || parse(r.start) <= nowD()) {
     h += '<div class="act"><button class="go" type="button" data-go-report="' + esc(id) + '">' + (r.report === 'done' ? '報告を直す' : 'この面談の報告をする') + '</button></div>';
   }
-  if (r.project === '旅キャリ' && tabiLocked(r)) {
+  if (r.project === '旅キャリ' && r.tabi_ops) {   // 旅キャリのキャンセル・日程変更（受け口が me の tabi_ops で許したときだけ・2026-11-27 Sales GO!-004）
+    const two = r.kind === 'tabi2';
+    h += '<div class="act"><h3>' + (two ? '二次面談の日時が変わったとき' : '面談の日時が変わったとき') + '</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
+      '<button class="go" type="button" data-op="reschedule"' + dis + '>日程変更した</button>' +
+      '<div class="note">' + (two ? '旅キャリのチャンネルに日程変更を知らせます。共有顧客リストと二次面談のカレンダーは変わりません（必要なら手で直してください）。'
+        : '新しい日時を記録して、いまの日時のリマインドを止めます。UTAGE（旅キャリ側）の予約は元の日時のまま残ります。旅キャリのチャンネルに日程変更を知らせます。') +
+      ' 新しい日時の Zoom の案内は自動では届かないので、LINE チャットで伝えてください。</div></div>' +
+      '<div class="act"><button class="go undo" type="button" data-cancel="1"' + dis + '>この面談をキャンセルにする</button><div class="note">' +
+      (two ? '旅キャリのチャンネルにキャンセルを知らせます。共有顧客リストとカレンダーは変わりません。' : 'UTAGE（旅キャリ側）の予約を「キャンセル（連絡あり）」にして、旅キャリのチャンネルに知らせます。') +
+      'お客様には何も送りません。</div></div>';
+  } else if (r.project === '旅キャリ' && tabiLocked(r)) {
     h += '<div class="box y">旅キャリの予約です。日程変更やお客様とのやりとりは、UTAGE（旅キャリ側）の LINE チャットで行ってください。この画面からの操作は準備中です。</div>';
   } else if (r.reminder === 'external') {
     h += '<div class="act"><h3>面談の日時が変わったとき</h3><input type="datetime-local" step="900" data-dt="' + esc(id) + '" value="' + esc(DT[id] || '') + '">' +
@@ -893,6 +904,9 @@ function askOp(op, id) {
     if (!v) { toast('新しい日時を入れてください'); return; }
     if (parse(v) <= nowD()) { toast('新しい日時が過去になっています'); return; }
     arg = v.replace('T', ' ').slice(0, 16); whoText += ' → ' + mdt(arg);
+    if (r.project === '旅キャリ') items = r.kind === 'tabi2'
+      ? ['旅キャリのチャンネル（#アポ獲得速報・#登録速報）に日程変更を知らせます', '共有顧客リストの二次面談日時と二次面談のカレンダーは変わりません', 'お客様へは何も送りません（新しい日時と Zoom は担当から伝えてください）']
+      : ['新しい日時を記録して、いまの日時のリマインドを止めます', 'UTAGE（旅キャリ側）の予約そのものは元の日時のまま残ります', '旅キャリのチャンネル（#アポ獲得速報・#登録速報）に日程変更を知らせます', 'お客様へは何も送りません（新しい日時と Zoom は担当から伝えてください）'];
   }
   if (op === 'member') {
     const nm = MB[id] || '', nv = DT['m_' + id] || '', cur = String(r.member || '').toUpperCase();
@@ -968,7 +982,11 @@ function askCancel(id) {   // 手動キャンセル（2026-11-26 SHUHEY）
   const r = meetingById(id); if (!r) return;
   openSheet('<div class="sh-top"><h3>面談をキャンセルにする</h3><button class="x" type="button" data-close>閉じる</button></div>' +
     '<div class="conf"><div><b>' + custName(r) + '</b></div><div>' + esc(mdt(r.start)) + '・担当 ' + esc(r.member || '') + '</div></div>' +
-    '<div class="note" style="margin:8px 0">UTAGEの予約を「キャンセル（連絡あり）」にして、リマインドを止めます。Googleカレンダーは【キャンセル】に、顧客マスターの結果はキャンセルになります。<b>お客様には何も送りません</b>（必要ならLINEで一言伝えてください）。元に戻すときはUTAGEで予約を取り直します。</div>' +
+    '<div class="note" style="margin:8px 0">' + (r.project !== '旅キャリ'
+      ? 'UTAGEの予約を「キャンセル（連絡あり）」にして、リマインドを止めます。Googleカレンダーは【キャンセル】に、顧客マスターの結果はキャンセルになります。'
+      : r.kind === 'tabi2' ? '旅キャリのチャンネル（#アポ獲得速報・#登録速報）にキャンセルを知らせます。共有顧客リストと二次面談のカレンダーは変わりません。'
+        : 'UTAGE（旅キャリ側）の予約を「キャンセル（連絡あり）」にして、リマインドを止めます。旅キャリのチャンネル（#アポ獲得速報・#登録速報）にキャンセルを知らせます。') +
+    '<b>お客様には何も送りません</b>（必要ならLINEで一言伝えてください）。' + (r.kind === 'tabi2' ? '' : '元に戻すときはUTAGEで予約を取り直します。') + '</div>' +
     '<label class="l" for="cxNote">メモ（任意・例：体調不良のため）</label><input type="text" id="cxNote" maxlength="100" autocomplete="off">' +
     '<div class="act"><button class="go undo" type="button" id="cxGo">キャンセルにする</button></div>');
   $('#cxGo').onclick = async () => {
@@ -1645,6 +1663,7 @@ function demoData() {
   const PLAN2 = '## 1. ひとことで\n見本：**家族の同意**が最後の一歩。気持ちはAに近いB。\n## 2. お客様の今\n- 見本：営業職で英語は中級\n- 見本：前回はStandardに前向き、奥さまと相談すると持ち帰り\n' +
     '## 3. 本音と迷い\n- 見本：お金より「家族にどう説明するか」で止まっている\n## 4. 次の面談の進め方\n1. 前回からの変化を聞く（奥さまと話せたか）\n2. **家族に話したときの反応**を確かめる\n3. 家族向けの説明の材料を一緒に作る\n4. 次の一歩（申込の日）を本人の言葉で決める\n' +
     '## 5. 聞かれそうなことと答え方\n- 見本：「本当に副業から始められる？」→ 受講生の例で答える\n## 6. 気をつけること\n- 見本：急がせない・値引きの話はしない';
+  if (DEMO_TABI) { tabi1.tabi_ops = 'cancel,reschedule'; tabi2.tabi_ops = 'cancel,reschedule'; }   // ?tabi=1：旅キャリのキャンセル・日程変更を使える見本（2026-11-27）
   let meetings = [
     row({ applicant_id: 'demo01', name: '佐藤 みゆき', start: at(0, 10), report: 'needed', past: '1' }),
     row(Object.assign({ applicant_id: 'tabi1demo02', name: '高橋 はると', start: at(-1, 20), insta: 'mihon_haru_trip', appointer: '見本アポ ゆい', report: 'needed', past: '1' }, tabi1)),
@@ -1661,6 +1680,7 @@ function demoData() {
     row({ applicant_id: 'demo08', name: '小林 さやか', start: at(-2, 19), past: '1', report: 'done', report_summary: '検討中・区分B', can_operate: '', reminder: '', reminder_text: '' }),
     row(Object.assign({ applicant_id: 'tabi2demo09', name: 'mihon_nana_cafe', start: at(-3, 21), insta: 'mihon_nana_cafe', appointer: '見本アポ りな', past: '1', report: 'done', report_summary: '成約・区分A' }, tabi2))
   ];
+  meetings.forEach(r => { if (r.past === '1' || r.project !== '旅キャリ') delete r.tabi_ops; });   // 受け口と同じ：終わった面談には出さない
   if (DEMO_ADMIN) meetings = meetings.concat([
     row({ applicant_id: 'demo21', name: '加藤 ゆうき', start: at(0, 15), member: 'RYO', report: 'needed', past: '1' }),
     row(Object.assign({ applicant_id: 'tabi1demo22', name: '吉田 まい', start: at(1, 11), member: 'NAO', insta: 'mihon_mai_walk', appointer: '見本アポ ゆい' }, tabi1)),
@@ -1677,7 +1697,7 @@ function demoData() {
     ok: true, now: stamp(now), today: ymd(now),
     user: { name: me, role: DEMO_ADMIN ? 'admin' : 'member', member: mine },
     members: DEMO_ADMIN ? ['MIKA', 'RYO', 'NAO', 'KEN'] : ['MIKA', 'RYO', 'NAO', 'KEN'],
-    features: { report_ad: 'on', report_tabi: 'on', op_tabi: false, bot: 'on' },
+    features: { report_ad: 'on', report_tabi: 'on', op_tabi: DEMO_TABI, op_tabi2: DEMO_TABI, bot: 'on' },
     meta: { list_updated_at: at(0, now.getHours(), Math.floor(now.getMinutes() / 10) * 10), tabi_updated_at: '', stale: '' },
     meetings, busy: { KAZUKI: [at(1, 12, 0)], YUSUKE: [], HIROE: [at(1, 13, 0)], SAKI: [], YURIE: [at(1, 12, 0)], SHUHEY: [] }, priority: [['KAZUKI', 'YUSUKE', 'HIROE'], ['SAKI', 'YURIE'], ['SHUHEY']],
     todo: [{ level: 'warn', text: 'ヒアリングシートがまだです（今日 20:00・田中 けんたさん）', applicant_id: 'demo03' },
@@ -1733,7 +1753,7 @@ function demoApi(action, body) {
   }
   if (action === 'op') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'op', op: body.op, aid: body.applicant_id, arg: body.arg }; return Promise.resolve({ ok: true, id }); }
   if (action === 'ask') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'ask', q: body.q }; return Promise.resolve({ ok: true, id }); }
-  if (action === 'status') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'status' }; return Promise.resolve({ ok: true, id }); }
+  if (action === 'status' || action === 'cancel') { const id = reqId(); DEMO_REQ[id] = { t: Date.now(), kind: 'status' }; return Promise.resolve({ ok: true, id }); }
   if (action === 'request') {
     const q = DEMO_REQ[body.id]; if (!q) return Promise.resolve({ ok: false, error: 'state' });
     if (Date.now() - q.t < 2200) return Promise.resolve({ ok: true, request: { id: body.id, status: 'running' } });
@@ -1747,7 +1767,7 @@ function demoApi(action, body) {
       if (r && q.op === 'hold') { r.reminder = 'off'; r.reminder_text = '停止中'; }
       if (r && q.op === 'resume') { r.reminder = 'on'; r.reminder_text = '配信中'; r.hold_text = ''; }
       if (r && q.op === 'reschedule') {   // 受け口と同じ形：start は UTAGE の日時のまま、manual_new_start に新しい日時（過ぎた予約も時刻前に戻る）
-        r.manual_new_start = q.arg; r.past = ''; r.reminder = 'on'; r.reminder_text = '配信中';
+        r.manual_new_start = q.arg; r.past = ''; r.reminder = 'on'; r.reminder_text = r.project === '旅キャリ' ? '止めています（日程変更・新しい日時の案内は担当から）' : '配信中';
         r.hold_text = '手動で日程変更（UTAGEの予約は ' + mdt(r.start) + ' のまま）'; if (r.report === 'needed') r.report = '';
       }
       if (r && q.op === 'revert') {
