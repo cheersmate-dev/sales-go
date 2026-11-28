@@ -65,6 +65,12 @@ header.top { position: sticky; top: 0; z-index: 20; background: linear-gradient(
 .brand { flex: none; display: block; line-height: 0; }
 .brand img { display: block; height: 26px; width: auto; }
 .me-pill { margin-left: auto; min-width: 0; font-weight: 700; color: #031147; background: var(--yellow); border-radius: 999px; padding: 2px 10px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 不具合・要望を送る（上の帯の2行目の右・いつも見える入口。名前の札や右下の Bot とぶつからない）2026-11-28 */
+.meta-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; min-width: 0; }
+.meta-row .meta { margin-top: 0; flex: 1 1 auto; min-width: 0; }
+.bugbtn { flex: none; display: inline-flex; align-items: center; gap: 4px; margin-left: auto; border: 1px solid rgba(253,200,5,.6); background: rgba(253,200,5,.14); color: #fdc805; border-radius: 999px; padding: 2px 10px; min-height: 26px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.bugbtn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bugbtn:focus-visible { outline: 2px solid #fdc805; outline-offset: 2px; }
 .reload { flex: none; border: 1px solid var(--hero-line); background: transparent; color: #fff; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
 .meta { color: var(--hero-muted); font-size: 12px; margin-top: 4px; }
 .who { margin-top: 10px; font-size: 12px; font-weight: 700; }   /* 説明書きを外したので、黄色い枠も外してボタンだけ（Sales GO!-011） */
@@ -413,7 +419,7 @@ details.rule .a li { margin: 3px 0; }
       <label class="view-sel" id="viewWrap" hidden><span class="vs-l">だれの画面</span><select id="viewSel" aria-label="だれの画面を見るか"></select></label>
       <button class="reload" id="reload" type="button">更新</button>
     </div>
-    <div class="meta" id="meta">読み込み中…</div>
+    <div class="meta-row"><div class="meta" id="meta">読み込み中…</div><button class="bugbtn" id="bugBtn" type="button" data-gobug="bug" aria-label="不具合・要望を送る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3zM12 10v4M12 17.2v.1"/></svg><span>不具合・要望を送る</span></button></div>
     <div class="who" id="who" hidden></div>
     <div class="demo-bar" id="demoBar" hidden><b>見本</b>です。名前も数字も架空で、押してもどこにも記録しません。</div>
   </div>
