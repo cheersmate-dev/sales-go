@@ -429,6 +429,9 @@ details.rule .a li { margin: 3px 0; }
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast" role="status"></div>
 
+<!-- 不具合・要望を送る（go-bug.js・GO!シリーズ全体-003）：右下の Bot の中に1行。受け口のURLが空のあいだは見本（送らない） -->
+<script>window.GO_BUG = {app: "Sales GO!", endpoint: "", fab: false, screens: ["今日","面談","LINE","報告","数字","資料", "ログイン・ひらけない"], beforeOpen: () => { try { closeSheet(); } catch (e) {} }};</script>
+<script src="go-bug.js"></script>
 <script src="line-go.js"></script>
 <script>
 'use strict';
@@ -1519,6 +1522,7 @@ function openBot() {
   const faq = (D && D.faq) || [];
   openSheet('<div class="botwrap"><div class="sh-top"><h3>営業Bot</h3><button class="x" type="button" data-close>閉じる</button></div>' +
     '<div class="intro">営業Q&A正ナレッジと、あなたの案件をもとに答えます。よくある質問はすぐ出ます。</div>' +
+    (window.GoBug ? GoBug.row() : '') +
     (faq.length ? '<div class="qchips">' + faq.slice(0, 6).map((x, i) => '<button type="button" data-faq="' + i + '">' + esc(x.q) + '</button>').join('') + '</div>' : '') +
     '<div class="chat" id="chat"></div>' +
     (on ? '<div class="ask"><textarea id="botQ" maxlength="500" placeholder="ここに質問を書く"></textarea><button class="go" type="button" id="botSend">送る</button></div>'
