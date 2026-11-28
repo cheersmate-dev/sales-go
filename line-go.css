@@ -69,7 +69,6 @@
 .lg-conv-h { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
 .lg-conv-h .r1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lg-conv-h h2 { margin: 0; font-size: 17px; font-weight: 900; color: var(--head); }
-.lg-back { border: 1px solid var(--line); background: var(--soft); border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; color: var(--sub); }
 .lg-steps { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; margin: 10px 0 0; padding: 0; }
 .lg-steps li { position: relative; text-align: center; font-size: 10.5px; color: var(--sub); font-weight: 700; }
 .lg-steps li::before { content: ""; position: absolute; top: 11px; left: -50%; right: 50%; height: 2px; background: var(--line); z-index: 0; }
@@ -168,6 +167,14 @@
 .lg-band-h > span { white-space: nowrap; }
 @media (min-width: 1000px) { .lg-draft.guard .lg-btns { grid-template-columns: 1fr 1fr; } }
 body.lg-wide .lg-draft textarea{min-height:160px}
+/* 一覧にもどる（2026-11-28 SHUHEY：小さくて分かりにくい → 大きく・いつも見える所に） */
+.lg-back { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 6px 16px 6px 10px; border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 900; }
+.lg-back span, .lg-backfab span { font-size: 22px; line-height: 1; margin-top: -2px; }
+.lg-backfab { position: fixed; z-index: 34; left: max(16px, calc((100vw - 720px) / 2 + 16px)); bottom: calc(84px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 6px;
+  min-height: 48px; padding: 8px 18px 8px 12px; border: 2px solid var(--lg-green); border-radius: 999px; background: var(--card); color: var(--ink); font-size: 15px; font-weight: 900; box-shadow: 0 6px 18px rgba(3,17,71,.25); }
+.lg-backfab small { font-size: 12px; font-weight: 700; color: #fff; background: var(--lg-green); border-radius: 999px; padding: 1px 8px; margin-left: 2px; }
+.lg-talk.showing ~ .lg-upd { margin-bottom: 64px; }
+@media (min-width: 1000px) { .lg-backfab, .lg-back { display: none; } }
 /* トークの中身（2026-11-28 SHUHEY「LINEの詳細までみれるように」） */
 .lg-chat { margin: 12px 0 10px; background: #8cabd9; border-radius: 16px; overflow: hidden; }
 :root[data-theme="dark"] .lg-chat { background: #1d2c4a; }
@@ -188,3 +195,5 @@ body.lg-wide .lg-draft textarea{min-height:160px}
 .lg-chat .lg-utage { display: block; text-align: center; padding: 8px; margin: 0; color: #fff; font-weight: 700; background: rgba(3,17,71,.25); text-decoration: none; }
 .lg-chat .note { padding: 0 12px; color: #fff; }
 @media (min-width: 1000px) { .lg-chat-b { max-height: 52vh; } }
+/* 右へスワイプで一覧にもどる（2026-11-28 SHUHEY） */
+@media (max-width: 999px) { .lg-talk.showing .lg-conv { touch-action: pan-y; will-change: transform; } }

@@ -113,14 +113,15 @@
       : '<div class="empty">ここに入る連絡はありません' + (LG.fil === 'wait' ? '。返事まちゼロ！🎉' : '') + '</div>';
     return '<div class="lg-talk' + (LG.showing ? ' showing' : '') + '"><section class="lg-list" aria-label="受信一覧"><div class="chips lg-fil">' + fil + '</div>' + items + '</section>' +
       '<section class="lg-conv" aria-label="トーク">' + (t ? viewConv(t) : '<div class="empty">一覧から1人えらんでください</div>') + '</section>' +
-      '<aside class="lg-side" aria-label="この方のいま">' + (t ? viewFacts(t) : '') + '</aside></div>';
+      '<aside class="lg-side" aria-label="この方のいま">' + (t ? viewFacts(t) : '') + '</aside></div>' +
+      (LG.showing ? '<button type="button" class="lg-backfab" data-lg-back="1"><span aria-hidden="true">‹</span> 一覧にもどる' + (waiting().length ? '<small>返事まち ' + waiting().length + '</small>' : '') + '</button>' : '');   // トークからすぐ一覧へ（2026-11-28 SHUHEY）
   }
   function name(t) { const m = t.applicant_id ? meetingById(t.applicant_id) : null; return m ? (m.name ? m.name + ' さん' : custName(m)) : 'LINEの友だち（予約なし）'; }
 
   function viewConv(t) {
     const s = step(t);
     const steps = STEPS.map((n, i) => '<li class="' + (i < s ? 'done' : i === s ? 'cur' : '') + '"><span class="dot">' + (i < s ? '✓' : i + 1) + '</span>' + n + '</li>').join('');
-    let h = '<div class="lg-conv-h"><div class="r1"><button type="button" class="lg-back" data-lg-back="1">← 一覧</button><h2>' + esc(name(t)) + '</h2>' +
+    let h = '<div class="lg-conv-h"><div class="r1"><button type="button" class="lg-back" data-lg-back="1" aria-label="一覧にもどる"><span aria-hidden="true">‹</span> 一覧</button><h2>' + esc(name(t)) + '</h2>' +
       (t.stage ? '<span class="lg-chip ' + stCls(t.stage) + '">' + esc(t.stage) + '</span>' : '') + '</div><ol class="lg-steps" aria-label="この方の歩み">' + steps + '</ol></div>';
     const ms = (LG.D.talks && LG.D.talks[t.fid]) || [];
     const chip = v => v && !NOISE[v] ? '<span class="lg-chip">' + esc(v) + '</span>' : '';   // 「その他」「関係なし」は出さない（2026-11-28）
@@ -219,6 +220,41 @@
       '<div class="sec-h"><h2>線引き</h2></div><div class="lg-rules"><div>📅 予定を変えるのは Sales GO! だけ（日程変更・キャンセル・担当）</div><div>💬 お客様に文を送るのは LINE GO! の見張りを通ったものだけ</div><div>🧭 旅キャリ（YUSUKE先生側）はまだ入れていません</div></div>';
   }
 
+  // ---- 一覧にもどる（ボタン・スマホの「戻る」どちらでも） ----
+  function back() {
+    if (history.state && history.state.lg) { history.back(); return; }
+    LG.showing = false; view(); window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', () => { if (LG.showing) { LG.showing = false; if (TAB === 'line') { view(); window.scrollTo(0, 0); } } });
+
+  // ---- 右へスワイプで一覧にもどる（スマホ・2026-11-28 SHUHEY） ----
+  const SW = { on: false, x: 0, y: 0, dx: 0, el: null, lock: '' };
+  document.addEventListener('touchstart', e => {
+    if (TAB !== 'line' || !LG.showing || window.innerWidth >= 1000 || e.touches.length !== 1) return;
+    if (e.target.closest('textarea,input,select,[contenteditable]')) return;
+    const el = document.querySelector('.lg-talk.showing .lg-conv'); if (!el || !el.contains(e.target)) return;
+    SW.on = true; SW.x = e.touches[0].clientX; SW.y = e.touches[0].clientY; SW.dx = 0; SW.el = el; SW.lock = '';
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!SW.on) return;
+    const dx = e.touches[0].clientX - SW.x, dy = e.touches[0].clientY - SW.y;
+    if (!SW.lock) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; SW.lock = (dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2) ? 'x' : 'y'; }
+    if (SW.lock !== 'x') { SW.on = false; return; }
+    SW.dx = Math.max(0, dx);
+    SW.el.style.transition = 'none'; SW.el.style.transform = 'translateX(' + SW.dx + 'px)'; SW.el.style.opacity = String(Math.max(.4, 1 - SW.dx / 500));
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  function swEnd() {
+    if (!SW.on) return; SW.on = false;
+    const el = SW.el, far = SW.dx > Math.min(110, window.innerWidth * .28);
+    if (!el) return;
+    el.style.transition = 'transform .18s ease, opacity .18s ease';
+    if (far) { el.style.transform = 'translateX(100%)'; el.style.opacity = '0'; setTimeout(back, 160); }
+    else { el.style.transform = ''; el.style.opacity = ''; setTimeout(() => { el.style.transition = ''; }, 200); }
+  }
+  document.addEventListener('touchend', swEnd, { passive: true });
+  document.addEventListener('touchcancel', swEnd, { passive: true });
+
   // ---- 押した ----
   async function decide(fid, choice, text, extra) {
     const t = th(fid); if (!t) return;
@@ -241,11 +277,11 @@
   function click(e) {
     const t = e.target;
     const op = t.closest('[data-lg-open]');
-    if (op) { LG.sel = op.dataset.lgOpen; LG.sub = 'talk'; LG.showing = true; if (LG.fil !== 'all' && !(th(LG.sel) && (LG.fil === 'wait' ? WAIT[th(LG.sel).flag] : th(LG.sel).flag === LG.fil))) LG.fil = 'all'; if (TAB !== 'line') showTab('line'); else view(); window.scrollTo(0, 0); return true; }
+    if (op) { if (!LG.showing && window.innerWidth < 1000) { try { history.pushState({ lg: 1 }, ''); } catch (e) {} } LG.sel = op.dataset.lgOpen; LG.sub = 'talk'; LG.showing = true; if (LG.fil !== 'all' && !(th(LG.sel) && (LG.fil === 'wait' ? WAIT[th(LG.sel).flag] : th(LG.sel).flag === LG.fil))) LG.fil = 'all'; if (TAB !== 'line') showTab('line'); else view(); window.scrollTo(0, 0); return true; }
     const go = t.closest('[data-lg-go]'); if (go) { LG.sub = 'talk'; LG.fil = 'wait'; LG.showing = false; showTab('line'); return true; }
     const sb = t.closest('[data-lg-sub]'); if (sb) { LG.sub = sb.dataset.lgSub; if (TAB !== 'line') showTab('line'); else view(); return true; }
     const fl = t.closest('[data-lg-fil]'); if (fl) { LG.fil = fl.dataset.lgFil; view(); return true; }
-    if (t.closest('[data-lg-back]')) { LG.showing = false; view(); return true; }
+    if (t.closest('[data-lg-back]')) { back(); return true; }
     if (t.closest('[data-lg-ext]')) { openExt(); return true; }
     const cx = t.closest('[data-lg-cancel]'); if (cx) { askCancel(cx.dataset.lgCancel); return true; }
     const sd = t.closest('[data-lg-seed]');
