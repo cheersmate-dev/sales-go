@@ -67,7 +67,8 @@ header.top { position: sticky; top: 0; z-index: 20; background: linear-gradient(
 .me-pill { margin-left: auto; min-width: 0; font-weight: 700; color: #031147; background: var(--yellow); border-radius: 999px; padding: 2px 10px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reload { flex: none; border: 1px solid var(--hero-line); background: transparent; color: #fff; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
 .meta { color: var(--hero-muted); font-size: 12px; margin-top: 4px; }
-.who { margin-top: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; padding: 6px 10px; background: rgba(253,200,5,.16); color: #fdc805; border: 1px solid rgba(253,200,5,.45); }
+.who { margin-top: 10px; font-size: 12px; font-weight: 700; }   /* 説明書きを外したので、黄色い枠も外してボタンだけ（Sales GO!-011） */
+.who .chips button.on { background: #fdc805; color: #031147; border-color: #fdc805; }   /* 紺の帯の上でも選んだボタンが見えるように（ライト・ダーク共通） */
 .demo-bar { margin-top: 8px; font-size: 12px; border-radius: 8px; padding: 5px 10px; background: rgba(255,255,255,.12); color: #fff; }
 .demo-bar b { color: var(--yellow); }
 
@@ -581,12 +582,11 @@ function render() {
   if (m.tabi_updated_at && m.tabi_updated_at !== m.list_updated_at) t += '／旅キャリ ' + mdt(m.tabi_updated_at);
   if (m.stale) t += '／' + m.stale;
   $('#meta').textContent = t;
+  $('#meta').hidden = true;   // 上部の「一覧の更新…」の行も出さない（2026-11-28 SHUHEY・Sales GO!-011）。中身は残すので、戻すときはこの行を消す
   $('#who').hidden = !isAdmin();
   if (isAdmin()) {   // 担当者を選ぶと、その人が見ている画面に切り替わる（2026-11-25 SHUHEY）
-    const v = D.view || '';
-    $('#who').innerHTML = (v ? '<b>' + esc(v) + ' さんが見ている画面</b>を表示中です（数字・報酬・要対応・面談はその人の分）。押した操作は管理者として記録されます。'
-      : '管理者のリンクです。全員（' + esc((D.members || []).join('・')) + '）の面談と数字が見えます。担当者には渡さないでください。') +
-      '<div class="chips" style="margin-top:8px">' + ['', ...(D.members || [])].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) + 'の画面' : '管理者（全員）') + '</button>').join('') + '</div>';
+    // 上の説明書きは外して、切り替えのボタンだけにする（2026-11-28 SHUHEY「上部のテキストが多すぎて見にくい」・Sales GO!-011）
+    $('#who').innerHTML = '<div class="chips">' + ['', ...(D.members || [])].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) + 'の画面' : '管理者（全員）') + '</button>').join('') + '</div>';
   }
   $('#demoBar').hidden = !DEMO;
   renderToday(); renderMeet(); renderReport(); renderNum(); renderDocs();
