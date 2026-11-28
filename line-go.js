@@ -5,13 +5,18 @@
 // index.html のあとで呼ばれる関数だけを置く（D・api・esc などは index.html のもの）。
 (function () {
   'use strict';
-  const LG = { D: null, sub: 'talk', sel: '', fil: 'all', showing: false, err: '', loading: false, late: {} };
+  const LG = { D: null, sub: 'talk', sel: '', fil: 'all', showing: false, err: '', loading: false, late: {}, edit: '' };
   const FLAG = { ai: 'AIの案', guard: '送る前に確認', human: '人が見る', hand: '任された', auto: '自動で返した', none: '返事不要', done: '対応済み' };
   const WAIT = { ai: 1, guard: 1, human: 1, hand: 1 };
   const FILTERS = [['all', 'すべて'], ['wait', '返事まち'], ['ai', 'AIの案'], ['guard', '送る前に確認'], ['human', '人が見る'], ['done', '済み']];
   const STEPS = ['友だち', 'セミナー', '面談予約', 'ヒアリング', '面談', '結果'];
   const LV = { 1: '案だけ', 2: 'ボタンで送る', 3: '自動で返す' };
-  const SUBS = [['talk', 'トーク'], ['bridge', '依頼'], ['skills', 'スキル帳'], ['rules', 'ルール']];
+  const SUBS = [['talk', 'トーク'], ['stall', '止まった'], ['bridge', '依頼'], ['skills', 'スキル帳'], ['rules', 'ルール']];
+  // 作戦：止まった状況（LINE GO!-005・2026-11-28 SHUHEY「期限つきのメッセージを送ってないから、ずっと残る。状況ごとに作戦を打ち込んで、次は自動で」）
+  // 見分け方は Mac mini（sgo_line_go.py の situation_of）と同じ。受け口からは tactics（作戦）と bridges の kind=stalled／close が来る
+  const SITS = [['noshow_nohearing', '面談の時間を過ぎた・ヒアリングも未'], ['noshow', '面談の時間を過ぎた・参加したか分からない'], ['hearing_late', '面談が24時間以内なのに、ヒアリングが未']];
+  const CLOSE = { cancel: 'キャンセルにするか聞く', hand: '担当に任せる', none: 'なにもしない（待つ）' };
+  const WD = '日月火水木金土';
   const LATE = '返信がおそくなってしまい、すみません！\n';
   const NOISE = { 'その他': 1, '関係なし': 1, 'なし': 1, '不明': 1 };
 
@@ -19,6 +24,11 @@
   const canSend = () => !!(LG.D && LG.D.mode === 'send');
   const th = fid => ((LG.D && LG.D.threads) || []).find(t => t.fid === fid);
   const waiting = () => ((LG.D && LG.D.threads) || []).filter(t => WAIT[t.flag] && !t.sending);
+  const isStall = b => b.kind === 'stalled' || b.kind === 'close';
+  const plainBr = () => ((LG.D && LG.D.bridges) || []).filter(b => !isStall(b));
+  const stalls = () => ((LG.D && LG.D.bridges) || []).filter(isStall);
+  const sitOf = b => { const m = String(b.id || '').match(/^(?:st|cl):tc:([a-z_]+):/); return m ? m[1] : ''; };
+  const tacticOf = k => ((LG.D && LG.D.tactics) || []).find(t => t.key === k) || null;
   const fidOf = r => { const m = String((r && r.talk_url) || '').match(/#([A-Za-z0-9_-]{6,})$/); return m ? m[1] : ''; };
   const threadOfMeeting = r => ((LG.D && LG.D.threads) || []).find(t => t.applicant_id === r.applicant_id) || null;
   const stCls = s => /キャンセル|見送り|失注/.test(s) ? 'lg-st-x' : /セミナー/.test(s) ? 'lg-st-s' : s ? 'lg-st-m' : '';
@@ -52,12 +62,14 @@
   // ---- 今日タブ：返事まちの帯・きょうの1件だけ・LINEからの依頼 ----
   function todayBand() {
     if (!on() || !LG.D) return '';
-    const w = waiting(), br = (LG.D.bridges || []), tk = LG.D.taught;
+    const w = waiting(), br = plainBr(), tk = LG.D.taught, sl = stalls(), cl = sl.filter(b => b.kind === 'close').length;
     const one = w.find(t => t.flag === 'ai');
     let h = '<button type="button" class="lg-band" data-lg-go="wait"><span class="lg-band-h"><span>💬 LINEの返事まち</span><b>' + w.length + '<small>件</small></b></span>' +
       '<span class="lg-band-s">' + (w.length ? '見る →' : 'ゼロです！🎉 いい感じ') + '</span></button>';
     if (one && canSend()) h += '<button type="button" class="lg-one" data-lg-open="' + esc(one.fid) + '"><b>きょうの1件だけ</b><span>AIの案を1通見て押すだけ。30秒で、スキルが1つ育ちます</span>' +
       (tk ? '<small>先週のあなた：教えた ' + (tk.last_week || 0) + '回 → 今週：' + (tk.this_week || 0) + '回</small>' : '') + '</button>';
+    if (sl.length) h += '<button type="button" class="lg-band lg-band-st" data-lg-sub="stall"><span class="lg-band-h"><span>🚦 止まったお客様</span><b>' + sl.length + '<small>人</small></b></span>' +
+      '<span class="lg-band-s">' + (cl ? '期限が来た ' + cl + '人 → 締める' : '期限つきのひと声で動かす →') + '</span></button>';
     if (br.length) h += '<button type="button" class="lg-band lg-band-b" data-lg-sub="bridge"><span class="lg-band-h"><span>📨 LINEからの依頼</span><b>' + br.length + '<small>件</small></b></span><span class="lg-band-s">予約の依頼・キャンセルの確認・フォロー</span></button>';
     return h;
   }
@@ -89,11 +101,11 @@
     const v = document.getElementById('v-line'); if (!v) return;
     if (!on()) { v.innerHTML = '<div class="empty">LINE GO! は準備中です。</div>'; return; }
     if (!LG.D) { v.innerHTML = '<div class="empty">' + esc(LG.err || '読み込み中…') + '</div>'; return; }
-    const nb = (LG.D.bridges || []).length;
+    const nb = plainBr().length, ns = stalls().length;
     let h = '<div class="lg-subs">' + SUBS.map(([k, n]) => '<button type="button" data-lg-sub="' + k + '" class="' + (LG.sub === k ? 'on' : '') + '">' + n +
-      (k === 'talk' && waiting().length ? '<span class="n">' + waiting().length + '</span>' : '') + (k === 'bridge' && nb ? '<span class="n">' + nb + '</span>' : '') + '</button>').join('') + '</div>';
+      (k === 'talk' && waiting().length ? '<span class="n">' + waiting().length + '</span>' : '') + (k === 'bridge' && nb ? '<span class="n">' + nb + '</span>' : '') + (k === 'stall' && ns ? '<span class="n st">' + ns + '</span>' : '') + '</button>').join('') + '</div>';
     if (LG.D.mode !== 'send') h += '<div class="box info lg-readonly">いまは<b>見るだけ</b>の段です。返信は UTAGE のトークから。ボタンで送れるようになったら、ここに出ます。</div>';
-    h += LG.sub === 'bridge' ? viewBridge() : LG.sub === 'skills' ? viewSkills() : LG.sub === 'rules' ? viewRules() : viewTalk();
+    h += LG.sub === 'stall' ? viewStall() : LG.sub === 'bridge' ? viewBridge() : LG.sub === 'skills' ? viewSkills() : LG.sub === 'rules' ? viewRules() : viewTalk();
     h += '<div class="note lg-upd">LINE GO! の一覧の更新 ' + esc(LG.D.updated_at ? mdt(LG.D.updated_at) : '未取得') + '（Mac mini が1分おきに書き直します）</div>';
     v.innerHTML = h;
     const c = document.getElementById('lgChat'); if (c) c.scrollTop = c.scrollHeight;
@@ -137,6 +149,8 @@
         chip(t.intent) + chip(t.action) + (t.stop_reason ? '<div class="note">止めた理由：' + esc(t.stop_reason) + '</div>' : '') +
         '<a class="lg-utage" href="' + esc(t.talk_url) + '" target="_blank" rel="noopener noreferrer">UTAGE のトークで全文を見る</a></div>';
     }
+    const sb = t.applicant_id && stalls().find(b => b.applicant_id === t.applicant_id);
+    if (sb) { const tc = tacticOf(sitOf(sb)); h += '<div class="lg-stallbar"><b>🚦 止まっています</b><span>' + esc(sb.title) + '</span>' + (tc && tc.on ? '<small>作戦「' + esc(tc.name) + '」' + (sb.due_at && sb.detail !== 'nostrat' ? '・期限 ' + esc(dlJa(sb.due_at)) : '') + '</small>' : '<small>作戦がまだです。「止まった」タブで打ち込めます</small>') + '</div>'; }
     h += viewDraft(t);
     if (canSend() && !t.sending && t.flag !== 'done') h += '<label class="lg-direct"><span class="hint">直接返信（自分のことばで。送った文もスキルの材料に）</span><textarea id="lgDirect" rows="2" maxlength="1000" placeholder="お名前は ◯◯ と書けば、送るときに入ります"></textarea><button type="button" class="go" data-lg-direct="' + esc(t.fid) + '">送る</button></label>';
     return h;
@@ -180,7 +194,7 @@
   }
 
   function viewBridge() {
-    const B = LG.D.bridges || [];
+    const B = plainBr();
     const KIND = { booking: ['📅', '予約の依頼'], cancel: ['🙏', 'キャンセルの確認'], followup: ['📝', 'フォローの案'] };
     const cards = B.map(b => {
       const k = KIND[b.kind] || ['・', b.kind], m = b.applicant_id ? meetingById(b.applicant_id) : null;
@@ -191,6 +205,93 @@
         (isAdmin() && b.member ? '<span class="lg-chip">担当 ' + esc(b.member) + '</span>' : '') + '</div><div>' + esc(b.title) + '</div>' + (b.detail ? '<div class="lg-mini">' + esc(b.detail) + '</div>' : '') + act + '</div>';
     }).join('');
     return '<div class="sec-h"><h2>LINE からの依頼</h2><span class="hint">どれも「案・依頼」まで。確定はあなたが押します</span></div>' + (cards || '<div class="empty">いまは依頼がありません</div>');
+  }
+
+  // ---- 止まった：状況ごとの作戦と、いま止まっているお客様（LINE GO!-005） ----
+  function dlJa(s) { const d = parse(s); return d ? (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）' + d.getHours() + '時' : ''; }
+  function sampleDl(days, hour) { const n = nowD(), d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + (+days || 0), Math.max(8, Math.min(21, +hour || 21)));
+    if (d - n < 3 * 3600e3) d.setDate(d.getDate() + 1); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）' + d.getHours() + '時'; }
+  function fillSample(text, days, hour) { return String(text || '').split('{期限}').join(sampleDl(days, hour)).split('◯◯').join('山田'); }
+  function whoName(aid) { const m = aid ? meetingById(aid) : null; return m ? (m.name ? m.name + ' さん' : custName(m)) : 'お客様'; }
+
+  function viewStall() {
+    const S = stalls(), cl = S.filter(b => b.kind === 'close');
+    let h = '<div class="sec-h"><h2>止まったお客様</h2><span class="hint">期限をつけて「待つ」を終わらせる</span></div>' +
+      '<div class="lg-why">期限のない連絡だと、お客様も急がず、こちらも締め切れずに<b>ずっと残ります</b>。状況ごとに作戦を1回打ち込めば、次から同じ状況の方に<b>期限つきの案</b>が出ます。期限が来て返事がなければ「締め切りますか」をお知らせします。</div>';
+    if (cl.length) h += '<div class="sec-h"><h2>⏰ 期限が来た <span class="lg-cnt">' + cl.length + '</span></h2><span class="hint">作戦どおり締めて、手放す</span></div>' + cl.map(b => {
+      const m = b.applicant_id ? meetingById(b.applicant_id) : null;
+      const act = b.detail === 'cancel' && m ? '<button type="button" class="go undo" data-lg-cancel="' + esc(b.applicant_id) + '">この面談をキャンセルにする</button><div class="note">お客様への連絡は作戦の文で済んでいます。押すと Sales GO! のキャンセルと同じ流れです</div>'
+        : '<div class="note">作戦は「担当に任せる」です。UTAGE のトークで最後のひと声をかけるか、面談カードで結果を決めてください</div>' + (m ? '<button type="button" class="go second" data-go-meet="' + esc(b.applicant_id) + '">面談カードを開く</button>' : '');
+      return '<div class="lg-br lg-close"><div class="r1"><span class="ic">⏰</span><b>' + esc(whoName(b.applicant_id)) + '</b>' + (isAdmin() && b.member ? '<span class="lg-chip">担当 ' + esc(b.member) + '</span>' : '') + '</div><div>' + esc(b.title) + '</div>' + act + '</div>';
+    }).join('');
+    const tacs = (LG.D.tactics && LG.D.tactics.length) ? LG.D.tactics : SITS.map(([key, label]) => ({ key, label, on: false }));
+    h += '<div class="lg-stall-grid">' + tacs.map(tc => {
+      const key = tc.key, label = tc.label || (SITS.find(x => x[0] === key) || [])[1] || key;
+      const ppl = S.filter(b => b.kind === 'stalled' && sitOf(b) === key);
+      if (LG.edit === key) return viewTacticEdit(tc, label, ppl.length);
+      const st = tc.on ? '<span class="lg-chip f-auto">作戦オン</span><span class="lg-lv l' + (tc.lv || 1) + '">Lv' + (tc.lv || 1) + ' ' + LV[tc.lv || 1] + '</span>' : tc.saved ? '<span class="lg-chip f-none">作戦オフ</span>' : '<span class="lg-chip f-guard">作戦がまだ</span>';
+      let c = '<article class="lg-sit' + (tc.on ? ' on' : '') + '"><div class="r1"><h3>' + esc(label) + '</h3><span class="lg-cnt' + (ppl.length ? '' : ' z') + '">' + ppl.length + '人</span></div><div class="chips2">' + st + '</div>' +
+        (tc.hint ? '<div class="lg-mini">' + esc(tc.hint) + '</div>' : '');
+      if (tc.text) c += '<div class="lg-plan"><div class="r"><small>作戦</small><b>' + esc(tc.name || '') + '</b></div>' + (tc.goal ? '<div class="r"><small>ねらい</small><span>' + esc(tc.goal) + '</span></div>' : '') +
+        '<div class="r"><small>期限</small><span>' + ((+tc.days || 0) === 0 ? 'その日' : (+tc.days) + '日後') + 'の ' + esc(tc.hour || 21) + '時まで</span></div><div class="r"><small>期限が来たら</small><span>' + esc(CLOSE[tc.close] || CLOSE.hand) + '</span></div>' +
+        '<details class="lg-txt"' + (LG.D.admin && !tc.on ? ' open' : '') + '><summary>送る文を見る（見本）</summary><div class="lg-bub"><p>' + esc(fillSample(tc.text, tc.days, tc.hour)) + '</p><time>見本</time></div></details>' +
+        (tc.on && (tc.lv || 1) < 3 ? '<div class="hint">あと <b>' + esc(tc.next || '—') + '回</b> 直さずに送れたら Lv' + ((tc.lv || 1) + 1) + '。Lv3＋SHUHEYのOKで、自動で送れるように</div>' : '') +
+        (tc.on && tc.lv === 3 ? '<div class="hint">' + (tc.auto ? '🤖 自動で送ります（夜・直前の送信・状態の変化は見張りが止めます）' : 'Lv3 です。作戦を直す から「自動で送る」をオンにできます') + '</div>' : '') + '</div>';
+      c += LG.D.admin ? '<button type="button" class="go' + (tc.on ? ' second' : '') + '" data-lg-tedit="' + esc(key) + '">' + (tc.saved ? '作戦を直す' : '✍️ 作戦を打ち込む') + '</button>'
+        : (tc.on ? '' : '<div class="note">作戦は SHUHEY が決めます。それまでは UTAGE のトークで、期限つきのひと声を</div>');
+      if (ppl.length) c += '<div class="lg-ppl">' + ppl.map(b => {
+        const lab = b.detail === 'draft' ? '<span class="lg-chip f-ai">案あり</span>' : b.detail === 'wait' ? '<span class="lg-chip f-none">期限まち ' + esc(dlJa(b.due_at)) + '</span>' : '<span class="lg-chip f-guard">作戦まち</span>';
+        const m = b.applicant_id ? meetingById(b.applicant_id) : null;
+        const btn = b.detail === 'draft' && th(b.fid) ? '<button type="button" class="go" data-lg-open="' + esc(b.fid) + '">案を見て送る</button>' : th(b.fid) ? '<button type="button" class="go second" data-lg-open="' + esc(b.fid) + '">トーク</button>'
+          : m ? '<button type="button" class="go second" data-go-meet="' + esc(b.applicant_id) + '">面談</button>' : '';
+        return '<div class="lg-p"><div class="t"><b>' + esc(whoName(b.applicant_id)) + '</b><span>' + (m ? '面談 ' + esc(mdt(m.manual_new_start || m.start)) : '') + (isAdmin() && b.member ? '・担当 ' + esc(b.member) : '') + '</span>' + lab + '</div>' + btn + '</div>';
+      }).join('') + '</div>';
+      else c += '<div class="note">いまは止まっている方はいません 🎉</div>';
+      return c + '</article>';
+    }).join('') + '</div>';
+    h += '<div class="lg-ladder"><h3>作戦が自動になるまで</h3><div><span class="lg-lv l1">Lv1</span><span><b>案だけ</b>　作戦の文で案が出る。送るのは人</span></div><div><span class="lg-lv l2">Lv2</span><span><b>ボタンで送る</b>　10回のうち9回、直さずに送れたら</span></div>' +
+      '<div><span class="lg-lv l3">Lv3</span><span><b>自動で送る</b>　20回つづけて直しなし＋SHUHEYのOK＋作戦の「自動で送る」。夜・直前に送った方・状態が変わった方は、見張りが止めます</span></div></div>';
+    return h;
+  }
+
+  function viewTacticEdit(tc, label, n) {
+    const days = tc.days == null ? 2 : +tc.days, hour = +tc.hour || 21, close = tc.close || 'hand', text = tc.text || '';
+    const opt = (v, cur, lab) => '<option value="' + v + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + lab + '</option>';
+    return '<article class="lg-sit edit"><div class="r1"><h3>' + esc(label) + '</h3><span class="lg-cnt' + (n ? '' : ' z') + '">' + n + '人</span></div>' +
+      '<div class="lg-form"><label><span>作戦の名前</span><input id="lgTName" maxlength="30" value="' + esc(tc.name || '') + '" placeholder="例：期限つきで、もう一度えらんでもらう"></label>' +
+      '<label><span>ねらい（どうなってほしいか）</span><input id="lgTGoal" maxlength="100" value="' + esc(tc.goal || '') + '" placeholder="例：期限までに「受け直す／見送る」を決めてもらう"></label>' +
+      '<label><span>送る文</span><textarea id="lgTText" rows="8" maxlength="800">' + esc(text) + '</textarea></label>' +
+      '<div class="lg-ins"><button type="button" data-lg-ins="◯◯">＋ お名前（◯◯）</button><button type="button" data-lg-ins="{期限}">＋ 期限</button><button type="button" data-lg-ins="\n① \n② ">＋ 選択肢①②</button></div>' +
+      '<div class="lg-row2"><label><span>期限</span><select id="lgTDays">' + [0, 1, 2, 3, 5, 7].map(d => opt(d, days, d ? d + '日後' : 'その日')).join('') + '</select></label>' +
+      '<label><span>時刻</span><select id="lgTHour">' + [12, 15, 18, 20, 21].map(x => opt(x, hour, x + '時まで')).join('') + '</select></label></div>' +
+      '<fieldset class="lg-radio"><legend>期限までに返事がなければ</legend>' + Object.keys(CLOSE).map(k => '<label><input type="radio" name="lgTClose" value="' + k + '"' + (close === k ? ' checked' : '') + '> ' + CLOSE[k] + '</label>').join('') + '</fieldset>' +
+      '<label class="lg-sw"><input type="checkbox" id="lgTOn"' + (tc.on || !tc.saved ? ' checked' : '') + '> <span><b>この作戦を使う</b>　同じ状況の方に、この文で案を出す（送るのは人が押したとき）</span></label>' +
+      '<label class="lg-sw"><input type="checkbox" id="lgTAuto"' + (tc.auto ? ' checked' : '') + '> <span><b>Lv3 になったら自動で送る</b>　20回つづけて直しなし＋SHUHEYのOKのあとだけ。それまでは案のまま</span></label>' +
+      '<div class="lg-prev"><small>お客様にはこう届きます（見本）</small><div class="lg-bub"><p id="lgTPrev">' + esc(fillSample(text, days, hour)) + '</p><time>見本</time></div><div class="hint" id="lgTWarn">' + (text.indexOf('{期限}') < 0 ? '⚠️ {期限} が入っていません。期限つきの連絡にするため、入れてください' : '') + '</div></div>' +
+      '<div class="lg-btns"><button type="button" class="go" data-lg-tsave="' + esc(tc.key) + '">この作戦で入れる</button><button type="button" class="go second" data-lg-tcancel="1">やめる</button></div>' +
+      '<div class="note">入れても、お客様には何も送りません。次の見回り（1分ほど）から案が出ます</div></div></article>';
+  }
+  function tacticForm() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const r = document.querySelector('input[name="lgTClose"]:checked');
+    return { name: v('lgTName').trim(), goal: v('lgTGoal').trim(), text: v('lgTText'), days: +v('lgTDays'), hour: +v('lgTHour'), close: r ? r.value : 'hand',
+      on: !!(document.getElementById('lgTOn') || {}).checked, auto: !!(document.getElementById('lgTAuto') || {}).checked };
+  }
+  document.addEventListener('input', e => {
+    if (!e.target.closest || !e.target.closest('.lg-sit.edit')) return;
+    const f = tacticForm(), p = document.getElementById('lgTPrev'), w = document.getElementById('lgTWarn');
+    if (p) p.textContent = fillSample(f.text, f.days, f.hour);
+    if (w) w.textContent = f.text.indexOf('{期限}') < 0 ? '⚠️ {期限} が入っていません。期限つきの連絡にするため、入れてください' : '';
+  });
+  async function saveTactic(key) {
+    const f = tacticForm();
+    if (f.on && !f.text.trim()) { toast('送る文を書いてください'); return; }
+    if (f.on && f.text.indexOf('{期限}') < 0) { toast('送る文に {期限} を入れてください'); return; }
+    const j = await api('line_tactic', Object.assign({ client_id: cid('tc'), tkey: key }, f));
+    if (!j.ok) { toast(errMsg(j)); return; }
+    const t = tacticOf(key);
+    if (t) Object.assign(t, f, { saved: true }); else (LG.D.tactics = LG.D.tactics || []).push(Object.assign({ key, saved: true }, f));
+    LG.edit = ''; toast(f.on ? '作戦を入れました！1分ほどで、同じ状況の方に案が出はじめます' : '作戦を控えにしました（オフ）'); view();
   }
 
   function viewSkills() {
@@ -282,6 +383,12 @@
     const sb = t.closest('[data-lg-sub]'); if (sb) { LG.sub = sb.dataset.lgSub; if (TAB !== 'line') showTab('line'); else view(); return true; }
     const fl = t.closest('[data-lg-fil]'); if (fl) { LG.fil = fl.dataset.lgFil; view(); return true; }
     if (t.closest('[data-lg-back]')) { back(); return true; }
+    const te = t.closest('[data-lg-tedit]'); if (te) { LG.edit = te.dataset.lgTedit; view(); const a = document.querySelector('.lg-sit.edit'); if (a) a.scrollIntoView({ block: 'start' }); return true; }
+    if (t.closest('[data-lg-tcancel]')) { LG.edit = ''; view(); return true; }
+    const ts = t.closest('[data-lg-tsave]'); if (ts) { saveTactic(ts.dataset.lgTsave); return true; }
+    const ins = t.closest('[data-lg-ins]');
+    if (ins) { const ta = document.getElementById('lgTText'); if (ta) { const a = ta.selectionStart || ta.value.length, b = ta.selectionEnd || a, v = ins.dataset.lgIns;
+      ta.value = ta.value.slice(0, a) + v + ta.value.slice(b); ta.focus(); ta.setSelectionRange(a + v.length, a + v.length); ta.dispatchEvent(new Event('input', { bubbles: true })); } return true; }
     if (t.closest('[data-lg-ext]')) { openExt(); return true; }
     const cx = t.closest('[data-lg-cancel]'); if (cx) { askCancel(cx.dataset.lgCancel); return true; }
     const sd = t.closest('[data-lg-seed]');
@@ -316,6 +423,9 @@
     const me = (dd.user && dd.user.member) || 'MIKA';
     const T = (o) => Object.assign({ fid: '', applicant_id: '', member: me, project: '広告', last_at: '', count: '1', summary: '', intent: '', target: '', flag: 'none', action: '', stop_reason: '', guard_why: '',
       stage: '', start: '', hearing: '', talk_url: 'https://example.com/line/talk#', draft_id: '', draft_skill: '', draft_lv: '', draft_text: '', draft_next: '', updated_at: at(0, 12, 59) }, o, { talk_url: 'https://example.com/line/talk#' + o.fid });
+    const dl2 = (() => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 21); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）21時'; })();
+    const TC1 = '◯◯様\nご予約いただいていた面談のお時間が過ぎてしまいましたが、大丈夫でしたか？\nお忙しい中だったと思います😊\n\nもしまだ受けてみたいお気持ちがあれば、\n① 日程をえらび直す\n② 今回は見送る\nのどちらか、番号だけで大丈夫なので{期限}までに返していただけますか？\n\n期限までにご連絡がなければ、いったん今回のご予約は締め切らせていただきますね。';
+    const TC2 = '◯◯様\n本日の面談、お時間が合わなかったでしょうか？\nご都合が悪くなることもありますよね、気にしないでください😊\n\n{期限}までに「日程をえらび直したい」とひとこと返していただければ、新しい日時をご案内します。\nご連絡がなければ、今回のご予約は締め切らせていただきます。';
     const threads = [
       T({ fid: 'Ufdemo03', applicant_id: 'demo03', last_at: at(0, 12, 41), summary: '今夜のZoom、スマホからでも入れますか？', intent: '入室・接続', flag: 'ai', stage: 'ロードマップ面談', draft_id: 'd1', draft_skill: '入室・接続', draft_lv: '2', draft_next: '3',
         draft_text: '◯◯様\nご連絡ありがとうございます！スマホからでも大丈夫です😊\nZoomのアプリを入れておいていただくと、20時になったら案内のリンクを押すだけで入れます。\n分からないことがあれば、いつでもこのLINEで聞いてくださいね！' }),
@@ -327,6 +437,8 @@
       T({ fid: 'Ufdemo99', last_at: at(0, 11, 30), summary: '12/3の14時か、12/4の夜はどうですか？', intent: '希望の日時', flag: 'human', stage: 'セミナー参加' }),
       T({ fid: 'Ufdemo98', last_at: at(0, 9, 17), count: '2', summary: '海外在住なので、何か自分にできることがあるのでは？と思って…', intent: 'その他', action: '関係なし', flag: 'human', stage: '' }),
       T({ fid: 'Ufdemo07', applicant_id: 'demo07', last_at: at(0, 8, 2), summary: 'リンク届きました！ありがとうございます', intent: '届いたか確認', flag: 'auto', action: '自動で返した（Lv3）', stage: 'ロードマップ面談' }),
+      T({ fid: 'Ufdemo01', applicant_id: 'demo01', last_at: at(0, 10), count: '', summary: '止まっています：面談の時間を過ぎた・ヒアリングも未', intent: '作戦', flag: 'ai', stage: '面談時刻を過ぎた（参加状況は未記録）・ヒアリング未',
+        draft_id: 'tc:noshow_nohearing:demo01:x', draft_skill: '作戦：期限つきで、もう一度えらんでもらう', draft_lv: '1', draft_next: '7', draft_text: TC1.split('{期限}').join(dl2) }),
       T({ fid: 'Ufdemo12', applicant_id: 'demo12', last_at: at(0, 7, 40), summary: 'スタンプ', intent: 'スタンプ', flag: 'none', stage: 'ロードマップ面談' })
     ];
     [dd, D].forEach(x => ((x && x.meetings) || []).forEach(m => { const t = threads.find(y => y.applicant_id === m.applicant_id); if (t) m.talk_url = t.talk_url; }));
@@ -335,6 +447,9 @@
       bridges: [
         { id: 'bk:demo', kind: 'booking', applicant_id: '', fid: 'Ufdemo99', member: me, title: '希望の日時が届きました', detail: '12/3の14時か、12/4の夜はどうですか？', due_at: at(0, 11, 30), status: 'open' },
         { id: 'cx:demo', kind: 'cancel', applicant_id: 'demo11', fid: 'Ufdemo11', member: me, title: '見送りの連絡がありました。この面談をキャンセルにしますか', detail: '今回はローンが通らず見送ります', due_at: at(0, 10, 20), status: 'open' },
+        { id: 'st:tc:noshow_nohearing:demo01:x', kind: 'stalled', applicant_id: 'demo01', fid: 'Ufdemo01', member: me, title: '面談の時間を過ぎた・ヒアリングも未', detail: 'draft', due_at: at(2, 21), draft_id: 'tc:noshow_nohearing:demo01:x', status: 'open' },
+        { id: 'cl:tc:noshow:demo12:x', kind: 'close', applicant_id: 'demo12', fid: 'Ufdemo12', member: me, title: '期限（' + (() => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 21); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）21時'; })() + '）が過ぎました。作戦どおり締め切りますか', detail: 'cancel', due_at: at(-1, 21), status: 'open' },
+        ...(isAdmin() ? [{ id: 'st:tc:noshow:demo21:x', kind: 'stalled', applicant_id: 'demo21', fid: 'Ufdemo21', member: 'RYO', title: '面談の時間を過ぎた・参加したか分からない', detail: 'wait', due_at: at(1, 21), status: 'open' }] : []),
         { id: 'fu:demo', kind: 'followup', applicant_id: 'demo08', fid: 'Ufdemo08', member: me, title: '面談のフォローの日です', detail: '3日後に連絡', due_at: at(0, 10, 0), draft_id: 'fu:demo', status: 'open' }],
       summaries: { demo03: { worry: '分割の回数と、毎月の支払い', temp: '前向き。家族に相談中', promise: '料金表を送る', msg_at: at(0, 12, 41) },
         demo10: { worry: '会社員を続けながらできるか', temp: '迷っている（時間）', promise: 'なし', msg_at: at(0, 9, 5) } },
@@ -343,6 +458,14 @@
       seeds: isAdmin() ? [{ name: '家族に相談したい', when: '「家族と相談します」と来たとき', sample: '◯◯様 もちろんです！ご家族に見ていただける資料もお送りしますね', count: 3, members: ['MIKA', 'RYO'] },
         { name: '支払いの不安', when: '「払えるか不安」と来たとき（借入れは勧めない）', sample: '◯◯様 不安なお気持ち、よく分かります。面談で一緒に考えましょう', count: 2, members: ['NAO'] }] : [],
       taught: { this_week: 3, last_week: 1, handled: 14 },
+      tactics: [
+        { key: 'noshow_nohearing', label: '面談の時間を過ぎた・ヒアリングも未', hint: '参加したか分からず、ヒアリングも出ていない。期限が無いので、お客様もこちらも動けない', saved: true, on: true, auto: false,
+          name: '期限つきで、もう一度えらんでもらう', goal: 'あいまいなまま待たない。期限までに「受け直す／今回は見送る」を決めてもらう', text: TC1, days: 2, hour: 21, close: 'cancel', lv: 1, next: 7, used: 3 },
+        { key: 'noshow', label: '面談の時間を過ぎた・参加したか分からない', hint: 'ヒアリングは出ているのに、面談の記録が無い（来なかったかも）', saved: true, on: true, auto: true,
+          name: '参加できたかを1タップで聞く', goal: '来られなかった方に気まずさなく戻ってきてもらう。期限で締める', text: TC2, days: 2, hour: 21, close: 'cancel', lv: 3, next: 0, used: 21 },
+        { key: 'hearing_late', label: '面談が24時間以内なのに、ヒアリングが未', hint: 'このままだと面談ができない。今日中の期限で背中を押す', saved: false, on: false, auto: false,
+          name: '今日中の期限でヒアリングをお願いする', goal: '面談をムダにしない。間に合わなければ日程を変える',
+          text: '◯◯様\n面談の前に、ヒアリングシートのご回答をお願いしております🙏\nあなたに合ったお話をするための大事なシートなので、{期限}までにご回答いただけますか？\n\n間に合わなさそうでしたら、遠慮なく日程の変更もできますので、ひとこと返してくださいね。', days: 0, hour: 21, close: 'hand', lv: 1 }],
       talks: {
         Ufdemo03: [['out', -1, 20, 0, 'ご予約ありがとうございます！明日20時からのロードマップ面談、Zoomでお待ちしています😊'], ['in', -1, 20, 12, 'よろしくお願いします！'], ['out', 0, 7, 30, '【本日20時】面談のご案内です。時間になったらこちらのリンクから入ってください'],
           ['in', 0, 12, 40, '今夜のZoom、スマホからでも入れますか？'], ['in', 0, 12, 41, '［スタンプ］', 'sticker']].map(m => ({ dir: m[0], at: at(m[1], m[2], m[3]), text: m[4], kind: m[5] || 'text' })),
@@ -356,6 +479,7 @@
     if (action === 'line_inbox') return Promise.resolve(JSON.parse(JSON.stringify(LG.demo || (LG.demo = demoData(DEMO_D || {}, demoNow())))));
     if (action === 'line_decide') { const id = 'demo-lg-' + Math.random().toString(36).slice(2, 8); DEMO_REQ[id] = { t: Date.now(), kind: 'lg', choice: body.choice }; return Promise.resolve({ ok: true, id }); }
     if (action === 'line_seed') return Promise.resolve({ ok: true, id: 'demo-sd' });
+    if (action === 'line_tactic') return Promise.resolve({ ok: true, id: 'demo-tc' });   // 見本：どこにも入れない
     return null;
   }
   function demoRequest(q, id) {

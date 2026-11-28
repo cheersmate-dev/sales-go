@@ -32,8 +32,8 @@
 .lg-mini { font-size: 12.5px; color: var(--sub); background: var(--soft); border-radius: 8px; padding: 6px 10px; margin-top: 8px; }
 
 /* ---- LINE タブ ---- */
-.lg-subs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
-.lg-subs button { border: 0; background: none; border-radius: 9px; padding: 8px 2px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
+.lg-subs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
+.lg-subs button { border: 0; background: none; border-radius: 9px; padding: 8px 1px; font-size: 13px; white-space: nowrap; font-weight: 700; color: var(--sub); }
 .lg-subs button.on { background: var(--accent); color: var(--accent-ink); }
 .lg-subs .n { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--lg-green); color: #052812; font: 700 11px/18px var(--font-num); }
 .lg-readonly { margin-bottom: 10px; }
@@ -204,3 +204,56 @@ body.lg-wide .lg-draft textarea{min-height:160px}
 .lg-chat .lg-utage { background: rgba(3,17,71,.55); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lg-b time { color: rgba(255,255,255,.92); } }
 :root[data-theme="dark"] .lg-b time { color: rgba(255,255,255,.92); }
+
+/* ---- 止まった：状況ごとの作戦（LINE GO!-005・2026-11-28 SHUHEY） ---- */
+.lg-subs .n.st { background: var(--yellow); color: #031147; }
+.lg-band-st { background: linear-gradient(135deg, #b4500a, #f08a24); box-shadow: 0 6px 18px rgba(240,138,36,.2); }
+.lg-why { background: var(--card); border: 1px solid var(--line); border-left: 4px solid #f08a24; border-radius: 12px; padding: 10px 12px; font-size: 13.5px; line-height: 1.6; margin-bottom: 10px; }
+.lg-cnt { display: inline-block; min-width: 26px; text-align: center; border-radius: 999px; padding: 0 9px; background: #f08a24; color: #fff; font: 700 13px/22px var(--font-num); }
+.lg-cnt.z { background: var(--soft); color: var(--sub); border: 1px solid var(--line); }
+.lg-close { border-color: #f08a24; box-shadow: 0 0 0 1px #f08a24 inset; }
+.lg-sit { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+.lg-sit.on { border-top: 4px solid var(--lg-green); }
+.lg-sit.edit { border: 2px solid var(--accent); }
+.lg-sit .r1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lg-sit h3 { margin: 0; font-size: 15.5px; font-weight: 900; color: var(--head); line-height: 1.4; }
+.lg-sit .chips2 { margin: 6px 0 2px; align-items: center; }
+.lg-sit > .go { margin-top: 10px; width: 100%; }
+.lg-plan { margin-top: 10px; display: grid; gap: 4px; }
+.lg-plan .r { display: grid; grid-template-columns: 6.5em 1fr; gap: 6px; font-size: 13.5px; }
+.lg-plan .r small { color: var(--sub); font-weight: 700; font-size: 12px; padding-top: 2px; }
+.lg-bub { background: #8fb2e2; border-radius: 12px; padding: 10px; margin-top: 6px; display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 4px; }
+.lg-bub p { margin: 0; background: #8de055; color: #101a38; border-radius: 16px; border-top-right-radius: 4px; padding: 8px 12px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; max-width: 92%; }
+.lg-bub time { flex: none; font: 600 10.5px var(--font-num); color: #fff; }
+:root[data-theme="dark"] .lg-bub { background: #1d2c4a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lg-bub { background: #1d2c4a; } }
+.lg-ppl { margin-top: 10px; display: grid; gap: 6px; }
+.lg-p { display: flex; align-items: center; gap: 8px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.lg-p .t { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.lg-p .t b { font-size: 14.5px; font-weight: 900; }
+.lg-p .t span { font-size: 12px; color: var(--sub); }
+.lg-p .go { flex: none; width: auto; margin: 0; padding: 8px 12px; font-size: 13.5px; }
+.lg-stallbar { margin-top: 10px; background: var(--card); border: 1px solid #f08a24; border-left: 5px solid #f08a24; border-radius: 12px; padding: 8px 12px; display: grid; gap: 2px; }
+.lg-stallbar b { color: #c25d0c; font-size: 13px; }
+.lg-stallbar span { font-weight: 700; font-size: 14px; }
+.lg-stallbar small { font-size: 12px; color: var(--sub); }
+:root[data-theme="dark"] .lg-stallbar b { color: #ffb070; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lg-stallbar b { color: #ffb070; } }
+.lg-form { display: grid; gap: 10px; margin-top: 10px; }
+.lg-form label > span, .lg-radio legend { display: block; font-size: 12.5px; font-weight: 700; color: var(--sub); margin-bottom: 3px; }
+.lg-form input[type="text"], .lg-form input:not([type]), .lg-form textarea, .lg-form select { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
+.lg-form textarea { line-height: 1.55; resize: vertical; }
+.lg-ins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+.lg-ins button { border: 1px dashed var(--accent); background: none; color: var(--head); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 700; }
+.lg-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lg-radio { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px 8px; margin: 0; display: grid; gap: 4px; }
+.lg-radio label { font-size: 14px; display: flex; gap: 6px; align-items: center; }
+.lg-sw { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.5; background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+.lg-sw input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.lg-prev small { font-size: 12px; color: var(--sub); font-weight: 700; }
+.lg-sit.edit .lg-btns { grid-template-columns: 2fr 1fr; }
+@media (min-width: 1000px) {
+  .lg-stall-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .lg-sit.edit { grid-column: 1 / -1; }
+}
+.lg-txt summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--head); padding: 4px 0; }
