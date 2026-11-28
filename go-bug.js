@@ -26,7 +26,7 @@
     idea: "あったらうれしいこと・直してほしいところ\n例：先週の記録も並べて見たい", ask: "使い方など、聞きたいこと", other: "運営に伝えたいこと"};
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
   const svg = (d, cls) => `<svg class="${cls || ""}" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
-  const ICO = {send: "M22 2 11 13M22 2l-7 20-4-9-9-4z", x: "M6 6l12 12M18 6 6 18", check: "M5 12.5l4.5 4.5L19 7", chev: "M9 6l6 6-6 6"};
+  const ICO = {cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", send: "M22 2 11 13M22 2l-7 20-4-9-9-4z", x: "M6 6l12 12M18 6 6 18", check: "M5 12.5l4.5 4.5L19 7", chev: "M9 6l6 6-6 6"};
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
   const cid = () => { const a = new Uint8Array(12); try { crypto.getRandomValues(a); } catch (e) { a.forEach((_, i) => a[i] = Math.random() * 256 | 0); } return "gb" + [...a].map(b => b.toString(16).padStart(2, "0")).join(""); };
   const demo = () => C.demo || !C.endpoint;
@@ -38,7 +38,30 @@
     const c = t.cloneNode(true); c.querySelectorAll(".badge,.soon,[hidden],svg").forEach(x => x.remove());
     return (own || c.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40);
   };
-  const S = {open: false, busy: false, sent: null, err: "", auto: "", d: null, restored: false};
+  const S = {open: false, busy: false, sent: null, err: "", auto: "", d: null, restored: false, imgs: [], imgBusy: false};
+  const IMG_MAX = 3, IMG_SIDE = 1400;   // スクショは3枚まで・長い辺1400pxのJPEGに縮めて送る（1枚およそ100〜300KB）
+  // 写真を縮める：端末の中だけで行う（元の写真は送らない）
+  function shrink(file) {
+    return new Promise((ok, ng) => {
+      if (!/^image\//.test(file.type || "")) return ng(new Error("type"));
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => {
+        const k = Math.min(1, IMG_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
+        const w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k));
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+        URL.revokeObjectURL(url); ok({url: c.toDataURL("image/jpeg", 0.78), w, h});
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); ng(new Error("read")); };
+      im.src = url;
+    });
+  }
+  async function addImgs(files) {
+    const list = [...(files || [])].slice(0, IMG_MAX - S.imgs.length); if (!list.length) return;
+    S.imgBusy = true; paint();
+    for (const f of list) { try { S.imgs.push(await shrink(f)); } catch (e) { S.err = "画像を読みこめませんでした。写真（PNG・JPEG）を選んでください。"; } }
+    S.imgBusy = false; paint();
+  }
 
   /* ---------- 見た目（gb- で始まる名前だけ。アプリの色に寄せるときは --gb-accent などを上書き） ---------- */
   const css = `
@@ -66,7 +89,7 @@
   .gb-x svg,.gb-send svg,.gb-check svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .gb-body{padding:16px 20px 4px}
   .gb-k{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}.gb-k:first-child{margin-top:0}
-  .gb-req{margin-left:6px;font-size:10px;background:var(--gb-gold);color:var(--gb-accent);padding:2px 6px;border-radius:99px;vertical-align:1px}
+  .gb-opt{margin-left:6px;font-size:11px;font-weight:400;color:var(--gb-sub)}.gb-req{margin-left:6px;font-size:10px;background:var(--gb-gold);color:var(--gb-accent);padding:2px 6px;border-radius:99px;vertical-align:1px}
   .gb-kinds{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border:0;padding:0;margin:0}
   .gb-kind span{display:flex;flex-direction:column;align-items:center}.gb-kind{border:1.5px solid var(--gb-line);background:var(--gb-card);color:var(--gb-ink);border-radius:14px;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font:inherit}
   .gb-kind svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -91,6 +114,14 @@
   .gb-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0;text-align:center}.gb-sum div{background:var(--gb-soft);border-radius:12px;padding:8px}
   .gb-sum dt{font-size:11px;color:var(--gb-sub)}.gb-sum dd{margin:2px 0 0;font-weight:700;font-size:13px}
   .gb-acts{display:grid;gap:8px}.gb-more{border:0;background:none;color:var(--gb-accent);font:inherit;font-weight:700;padding:10px;cursor:pointer;text-decoration:underline}
+  .gb-shots{display:flex;flex-wrap:wrap;gap:8px}
+  .gb-shot{position:relative;width:84px;height:84px;border-radius:12px;overflow:hidden;border:1.5px solid var(--gb-line);background:var(--gb-soft)}
+  .gb-shot img{width:100%;height:100%;object-fit:cover;display:block}
+  .gb-shot button{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(10,20,45,.72);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+  .gb-shot button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+  .gb-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed color-mix(in srgb,var(--gb-accent) 40%,#fff);background:var(--gb-card);color:var(--gb-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+  .gb-add svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .gb-add input{display:none}
   body.gb-on{overflow:hidden}
   @media (max-width:480px){.gb-kinds{grid-template-columns:repeat(2,1fr)}.gb-kind{flex-direction:row;justify-content:flex-start;gap:8px;padding:10px 12px;text-align:left}
     .gb-kind b{font-size:14px}.gb-kind small{display:block;text-align:left}.gb-kind span{display:flex;flex-direction:column;align-items:flex-start;min-width:0}}
@@ -114,7 +145,7 @@
 
   function open(kind) {
     const d = draft();
-    S.auto = where(); S.sent = null; S.err = ""; S.busy = false;
+    S.auto = where(); S.sent = null; S.err = ""; S.busy = false; if (!S.open) S.imgs = S.imgs || [];
     S.restored = !!(d && (d.text || "").trim());
     S.d = S.restored ? d : {text: "", kind: kind || "bug", screen: S.auto, cid: cid()};
     if (kind && !S.restored) S.d.kind = kind;
@@ -141,7 +172,7 @@
     if (S.sent) {
       box.innerHTML = `${head}<div class="gb-done" role="status"><span class="gb-check">${svg(ICO.check)}</span><b>ありがとうございます！</b>
         <p>${demo() ? "見本なので、実際にはどこにも送っていません。" : "運営が読んで、直したらアプリに反映します。<br>必要なときは、こちらから連絡します。"}</p>
-        <dl class="gb-sum"><div><dt>種類</dt><dd>${esc(kindName(S.sent.kind))}</dd></div><div><dt>画面</dt><dd>${esc(S.sent.screen || "—")}</dd></div><div><dt>文字数</dt><dd>${S.sent.text.length}字</dd></div></dl>
+        <dl class="gb-sum"><div><dt>種類</dt><dd>${esc(kindName(S.sent.kind))}</dd></div><div><dt>画面</dt><dd>${esc(S.sent.screen || "—")}</dd></div><div><dt>${S.sent.n ? "スクショ" : "文字数"}</dt><dd>${S.sent.n ? S.sent.n + "枚" : S.sent.text.length + "字"}</dd></div></dl>
         <div class="gb-acts"><button type="button" class="gb-send" data-gbclose>閉じる</button><button type="button" class="gb-more" data-gbagain>もう1件送る</button></div></div>`;
       return;
     }
@@ -156,17 +187,21 @@
       <label class="gb-k" for="gbText">くわしく<span class="gb-req">必須</span></label>
       <div class="gb-ta${over ? " over" : ""}"><textarea id="gbText" rows="6" maxlength="${MAX + 200}" placeholder="${esc(PH[d.kind] || PH.other)}">${esc(d.text)}</textarea><span class="gb-count" id="gbCount" aria-live="polite">${len} / ${MAX}</span></div>
       ${S.restored ? `<p class="gb-hint">前に書いた下書きを出しています</p>` : ""}
+      <span class="gb-k">スクショ<span class="gb-opt">あれば（${IMG_MAX}枚まで）</span></span>
+      <div class="gb-shots">${S.imgs.map((m, i) => `<div class="gb-shot"><img src="${m.url}" alt="スクショ${i + 1}"><button type="button" data-gbdel="${i}" aria-label="スクショ${i + 1}を外す">${svg(ICO.x)}</button></div>`).join("")}
+        ${S.imgs.length < IMG_MAX ? `<label class="gb-add">${S.imgBusy ? `<span class="gb-spin" aria-hidden="true"></span>` : svg(ICO.cam)}${S.imgBusy ? "縮めています" : "写真を選ぶ"}<input type="file" id="gbFile" accept="image/*" multiple></label>` : ""}</div>
+      <p class="gb-hint">お客様の名前や連絡先が写っていたら、塗りつぶしてから選んでください</p>
       <p class="gb-cheer">ひとことでも大丈夫です。「なんか変かも」も大歓迎。みんなの声で、アプリが毎週よくなります。</p>
       ${S.err ? `<div class="gb-err" role="alert"><p><b>送れませんでした</b><br>${esc(S.err)}<br>書いた文章はこの端末に残しています。</p></div>` : ""}
-      <p class="gb-meta">いっしょに送るもの：アプリの名前・画面・端末とブラウザ・時刻・アプリの版${C.who ? "・表示名" : ""}（パスワードや本名、お客様の情報は書かないでください）</p>
-      <button type="button" class="gb-send" id="gbSend" ${empty || over || S.busy ? "disabled" : ""}>${S.busy ? `<span class="gb-spin" aria-hidden="true"></span>送っています…` : `${svg(ICO.send)}運営に送る`}</button>
+      <p class="gb-meta">いっしょに送るもの：アプリの名前・画面・端末とブラウザ・時刻・アプリの版${C.who ? "・表示名" : ""}${S.imgs.length ? "・スクショ" : ""}（パスワードや本名、お客様の情報は書かないでください）</p>
+      <button type="button" class="gb-send" id="gbSend" ${empty || over || S.busy || S.imgBusy ? "disabled" : ""}>${S.busy ? `<span class="gb-spin" aria-hidden="true"></span>送っています…` : `${svg(ICO.send)}運営に送る`}</button>
     </div>`;
   }
   function input(t) {
     S.d.text = t.value; save(S.d);
     const len = t.value.length, over = len > MAX, c = document.getElementById("gbCount"), b = document.getElementById("gbSend");
     if (c) { c.textContent = `${len} / ${MAX}`; c.parentElement.classList.toggle("over", over); }
-    if (b && !S.busy) b.disabled = !t.value.trim() || over;
+    if (b && !S.busy) b.disabled = !t.value.trim() || over || S.imgBusy;
   }
   const errMsg = e => {
     const m = String(e && e.message || e || "");
@@ -186,24 +221,35 @@
         const ver = (document.querySelector('meta[name="app-version"]') || {}).content || "";
         const r = await fetch(C.endpoint, {method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"},
           body: JSON.stringify({app: C.app, kind: d.kind, screen: d.screen, auto: S.auto, text, cid: d.cid, ver, who, url: location.origin + location.pathname,
-            ua: navigator.userAgent, scr: {w: Math.round(innerWidth), h: Math.round(innerHeight)}})});
+            ua: navigator.userAgent, scr: {w: Math.round(innerWidth), h: Math.round(innerHeight)},
+            imgs: S.imgs.map((m, i) => ({name: "shot" + (i + 1) + ".jpg", type: "image/jpeg", b64: m.url.split(",")[1]}))})});
         const j = await r.json().catch(() => ({}));
         if (!r.ok || !j.ok) throw new Error(j.error || "ng");
       }
-      S.sent = {kind: d.kind, screen: d.screen, text}; store(KEY, null); S.d = null;
+      S.sent = {kind: d.kind, screen: d.screen, text, n: S.imgs.length}; store(KEY, null); S.d = null; S.imgs = [];
     } catch (e) { S.err = errMsg(e); }
     S.busy = false; S.restored = false; paint();
   }
   document.addEventListener("click", ev => {
-    const t = ev.target.closest && ev.target.closest("[data-gobug],[data-gbclose],[data-gbkind],[data-gbagain],#gbSend"); if (!t) return;
+    const t = ev.target.closest && ev.target.closest("[data-gobug],[data-gbclose],[data-gbkind],[data-gbagain],[data-gbdel],#gbSend"); if (!t) return;
     if (t.hasAttribute("data-gobug")) { ev.preventDefault(); if (typeof C.beforeOpen === "function") try { C.beforeOpen(); } catch (e) {} open(t.dataset.gobug || ""); return; }
     if (t.hasAttribute("data-gbclose")) { close(); return; }
     if (t.dataset.gbkind) { S.d.kind = t.dataset.gbkind; save(S.d); paint(); return; }
-    if (t.hasAttribute("data-gbagain")) { S.sent = null; S.d = {text: "", kind: "bug", screen: S.auto, cid: cid()}; paint(); return; }
+    if (t.hasAttribute("data-gbdel")) { S.imgs.splice(Number(t.dataset.gbdel), 1); paint(); return; }
+    if (t.hasAttribute("data-gbagain")) { S.sent = null; S.imgs = []; S.d = {text: "", kind: "bug", screen: S.auto, cid: cid()}; paint(); return; }
     if (t.id === "gbSend") submit();
   });
   document.addEventListener("input", ev => { if (ev.target && ev.target.id === "gbText" && S.d) input(ev.target); });
-  document.addEventListener("change", ev => { if (ev.target && ev.target.id === "gbScreen" && S.d) { S.d.screen = ev.target.value; save(S.d); } });
+  document.addEventListener("change", ev => {
+    if (ev.target && ev.target.id === "gbScreen" && S.d) { S.d.screen = ev.target.value; save(S.d); }
+    if (ev.target && ev.target.id === "gbFile" && S.d) { S.err = ""; addImgs(ev.target.files); }
+  });
+  // PC：画面に貼りつけ（⌘V）でもスクショを足せる
+  document.addEventListener("paste", ev => {
+    if (!S.open || !S.d || S.sent) return;
+    const fs = [...((ev.clipboardData || {}).items || [])].filter(x => x.kind === "file" && /^image\//.test(x.type)).map(x => x.getAsFile()).filter(Boolean);
+    if (fs.length) { ev.preventDefault(); addImgs(fs); }
+  });
   document.addEventListener("keydown", ev => {
     if (!S.open) return;
     if (ev.key === "Escape") { close(); return; }
