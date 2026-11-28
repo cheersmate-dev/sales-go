@@ -289,6 +289,19 @@ table.t td.num { font-family: var(--font-num); }
 .lk { display: block; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
 .lk b { color: var(--head); font-size: 15px; }
 .lk span { display: block; font-size: 12.5px; color: var(--sub); margin-top: 2px; }
+.dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+@media (min-width: 760px) { .dgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.dl { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 76px; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 30px 12px 12px; color: var(--head); box-shadow: 0 1px 0 rgba(3,10,40,.04); }
+.dl b { font-size: 14.5px; line-height: 1.35; color: var(--head); word-break: break-word; }
+.dl span { font-size: 11.5px; line-height: 1.35; color: var(--sub); margin-top: 4px; }
+.dl i { position: absolute; top: 10px; right: 10px; font-style: normal; font-weight: 700; font-size: 15px; color: var(--accent); }
+.dl:active { transform: scale(.98); }
+@media (hover: hover) { .dl:hover { border-color: var(--accent); } }
+details.more { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 6px; }
+details.more > summary { cursor: pointer; list-style: none; padding: 12px 4px; font-weight: 700; color: var(--sub); font-size: 14px; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::after { content: '＋ ひらく'; float: right; font-size: 12px; }
+details.more[open] > summary::after { content: '− とじる'; }
 details.faq { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
 details.faq summary { cursor: pointer; padding: 12px 14px; font-weight: 700; color: var(--head); list-style: none; }
 details.faq summary::-webkit-details-marker { display: none; }
@@ -1337,7 +1350,7 @@ function adminHtml() {
 }
 
 // ---- 資料 ----
-let FAQ_Q = '';
+let FAQ_Q = '', DOCS_MORE = false;
 // ---- 日程のルールと使い方（2026-11-26 SHUHEY「ルールと使い方がわかるように」） ----
 const RULES_TOP = [
   'お客様は<b>日時だけ</b>を選びます。担当は、空いている人の中から決まった順番で自動で決まります。',
@@ -1453,25 +1466,28 @@ function rulesHtml() {
   h += RULES_CASES.map(([q, a]) => '<details class="rule"><summary>' + esc(q) + '</summary><div class="a">' + a + '</div></details>').join('');
   return h + '</div>';
 }
-function goRules() { showTab('docs'); const el = $('#rules'); if (el) el.scrollIntoView({ block: 'start' }); }
+function goRules() { DOCS_MORE = true; showTab('docs'); const m = $('#docsMore'); if (m) m.open = true; const el = $('#rules'); if (el) el.scrollIntoView({ block: 'start' }); }
 function renderDocs() {
   const all = D.links || [], faq = D.faq || [];
   const pay = all.filter(l => /^pay:/.test(l.note || '')), links = all.filter(l => !/^pay:/.test(l.note || ''));
-  let h = rulesHtml();
+  // 一番上は資料のリンク。押したらすぐその資料が開く（2026-11-28 SHUHEY「いきなりリンクに飛べるように」）
+  let h = '<div class="sec-h" style="margin-top:4px"><h2>資料</h2><span class="hint">押すとすぐ開きます</span></div>' + (links.length ? '<div class="dgrid">' + links.map(l =>
+    '<a class="dl" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(l.title) + '</b>' + (l.note ? '<span>' + esc(l.note) + '</span>' : '') + '<i aria-hidden="true">↗</i></a>').join('') + '</div>' : '<div class="empty">まだありません</div>');
   if (pay.length) {
-    h += '<div class="sec-h" style="margin-top:4px"><h2>決済リンク</h2><span class="hint">押すとURLがコピーされます</span></div>';
+    h += '<div class="sec-h"><h2>決済リンク</h2><span class="hint">押すとURLがコピーされます</span></div>';
     [['pay:単発', '単発決済'], ['pay:継続', '継続決済（毎月5日に決済）']].forEach(([k, label]) => {
       const xs = pay.filter(l => (l.note || '').indexOf(k) === 0); if (!xs.length) return;
       h += '<div class="note" style="margin:6px 0 4px"><b>' + esc(label) + '</b></div><div class="paygrid">' +
         xs.map(l => '<button type="button" class="paybtn" data-pay="' + esc(safeUrl(l.url)) + '" data-payt="' + esc(label + ' ' + l.title) + '">' + esc(l.title) + '</button>').join('') + '</div>';
     });
   }
-  h += '<div class="sec-h" style="margin-top:4px"><h2>リンク</h2></div>' + (links.length ? links.map(l =>
-    '<a class="lk" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(l.title) + '</b>' + (l.note ? '<span>' + esc(l.note) + '</span>' : '') + '</a>').join('') : '<div class="empty">まだありません</div>');
+  // ルール・こんな時どうする・よくある質問は、たたんで下に（読みたい人だけ開く）
+  h += '<details class="more" id="docsMore"' + (DOCS_MORE ? ' open' : '') + '><summary>📘 ルール・よくある質問（読みもの）</summary>' + rulesHtml();
   h += '<div class="sec-h"><h2>よくある質問</h2><span class="hint">' + faq.length + '件</span></div><input type="search" id="faqQ" placeholder="ことばで探す（例：分割）" value="' + esc(FAQ_Q) + '">';
   h += '<div id="faqList">' + faqHtml() + '</div>';
-  h += '<div class="note">答えの元は営業Q&A正ナレッジです。ここに無いことは、右下の営業Botに聞いてください。</div>';
+  h += '<div class="note">答えの元は営業Q&A正ナレッジです。ここに無いことは、右下の営業Botに聞いてください。</div></details>';
   $('#v-docs').innerHTML = h;
+  const m = $('#docsMore'); if (m) m.addEventListener('toggle', () => { DOCS_MORE = m.open; });
 }
 function faqHtml() {
   const q = FAQ_Q.trim(), list = (D.faq || []).filter(x => !q || (x.q + x.a + (x.tag || '')).indexOf(q) >= 0);
