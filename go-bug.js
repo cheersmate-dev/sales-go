@@ -13,7 +13,8 @@
        screen: () => "今日",          // いま開いている画面の名前（無ければ選ばれているタブの文字）
        screens: ["今日", "面談", ...],// 「どの画面？」の選択肢
        who: () => "",                 // 表示名（見本では空）
-       demo: false                    // true なら送らない
+       demo: false,                   // true なら送らない
+       dark: "auto"                   // ダークモード："auto"＝アプリがダークに対応している（color-scheme に dark が入る）ときだけ端末のダークに合わせる／false＝いつもライト
      };
    ほかから開く：GoBug.open("bug")／Bot の中に置く1行：GoBug.row()（押すと開く・data-gobug） */
 (function () {
@@ -127,8 +128,26 @@
     .gb-kind b{font-size:14px}.gb-kind small{display:block;text-align:left}.gb-kind span{display:flex;flex-direction:column;align-items:flex-start;min-width:0}}
   @media (min-width:900px){.gb-sheet{align-items:center}.gb-in{border-radius:22px;max-height:86vh;transform:translateY(16px) scale(.98)}.gb-hero{border-radius:22px 22px 0 0}
     .gb-fab{bottom:24px!important;right:24px}}
-  @media (prefers-reduced-motion:reduce){.gb-sheet,.gb-in{transition:none}}`;
+  @media (prefers-reduced-motion:reduce){.gb-sheet,.gb-in{transition:none}}
+  /* ダークモード（2026-11-28 GO!シリーズ全体-004）：アプリがダークに対応しているときだけ（html.gb-auto）。
+     右下のボタンは、ダークの背景に溶けないよう明るめの青＋明るい縁＋背景色のふち。シートは暗い地に明るい字 */
+  .gb-dk .gb-fab{background:#3558B8;color:#fff;box-shadow:0 0 0 3px rgba(5,10,26,.92),0 8px 20px rgba(0,0,0,.55),inset 0 0 0 1.5px rgba(255,255,255,.55)}
+  .gb-dk{--gb-ink:#EEF2FF;--gb-sub:#A6B0CD;--gb-line:#3A4A86;--gb-card:#141D3B;--gb-soft:#1B2650;--gb-err:#FF8A80}
+  .gb-dk .gb-kind[aria-checked="true"]{border-color:var(--gb-gold);background:color-mix(in srgb,var(--gb-gold) 16%,var(--gb-card))}
+  .gb-dk .gb-err{background:#3D1712}
+  .gb-dk .gb-row .gb-ib,.gb-dk .gb-req,.gb-dk .gb-check,.gb-dk .gb-send{color:#0B1530}
+  .gb-dk .gb-more{color:#9CC8F4}
+  .gb-dk .gb-ta textarea:focus,.gb-dk .gb-sel:focus{border-color:var(--gb-gold)}
+  .gb-dk .gb-ta textarea::placeholder{color:#7C88AA}`;
   const st = document.createElement("style"); st.id = "gbStyle"; st.textContent = css; document.head.appendChild(st);
+  /* ダークの切りかえ：アプリの color-scheme（dark が入るか）と data-theme・端末の設定を見て、html に gb-dk をつけはずしする */
+  const dk = () => {
+    const h = document.documentElement, t = h.getAttribute("data-theme");
+    const on = C.dark !== false && /dark/.test(getComputedStyle(h).colorScheme || "") && (t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches));
+    h.classList.toggle("gb-dk", on);
+  };
+  dk(); try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dk); new MutationObserver(dk).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]}); } catch (e) {}
+  document.addEventListener("DOMContentLoaded", dk);
 
   /* ---------- 右下のボタン ---------- */
   if (C.fab) {
