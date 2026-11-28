@@ -35,7 +35,7 @@
 .lg-subs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
 .lg-subs button { border: 0; background: none; border-radius: 9px; padding: 8px 2px; font-size: 13.5px; font-weight: 700; color: var(--sub); }
 .lg-subs button.on { background: var(--accent); color: var(--accent-ink); }
-.lg-subs .n { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--lg-green); color: #fff; font: 700 11px/18px var(--font-num); }
+.lg-subs .n { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--lg-green); color: #052812; font: 700 11px/18px var(--font-num); }
 .lg-readonly { margin-bottom: 10px; }
 .lg-upd { text-align: center; margin-top: 14px; }
 
@@ -75,7 +75,7 @@
 .lg-steps li:first-child::before { display: none; }
 .lg-steps li.done::before, .lg-steps li.cur::before { background: var(--lg-green); }
 .lg-steps .dot { position: relative; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; margin: 0 auto 2px; border-radius: 50%; background: var(--soft); border: 2px solid var(--line); font: 700 11px var(--font-num); }
-.lg-steps li.done .dot { background: var(--lg-green); border-color: var(--lg-green); color: #fff; }
+.lg-steps li.done .dot { background: var(--lg-green); border-color: var(--lg-green); color: #052812; }
 .lg-steps li.cur { color: var(--ink); }
 .lg-steps li.cur .dot { border-color: var(--lg-green); color: var(--ok); box-shadow: 0 0 0 3px var(--lg-greenbg); }
 
@@ -197,3 +197,10 @@ body.lg-wide .lg-draft textarea{min-height:160px}
 @media (min-width: 1000px) { .lg-chat-b { max-height: 52vh; } }
 /* 右へスワイプで一覧にもどる（2026-11-28 SHUHEY） */
 @media (max-width: 999px) { .lg-talk.showing .lg-conv { touch-action: pan-y; will-change: transform; } }
+
+/* ダークモード・ライトとも字を読めるように（2026-11-28 GO!シリーズ全体-004）
+   ライトのトークの地（水色）では白い時刻とリンクが沈むので、時刻は濃い紺・リンクの帯は濃くする。ダークは今のまま */
+.lg-b time { color: #1d2b4d; }
+.lg-chat .lg-utage { background: rgba(3,17,71,.55); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lg-b time { color: rgba(255,255,255,.92); } }
+:root[data-theme="dark"] .lg-b time { color: rgba(255,255,255,.92); }
