@@ -13,6 +13,7 @@
   const LV = { 1: '案だけ', 2: 'ボタンで送る', 3: '自動で返す' };
   const SUBS = [['talk', 'トーク'], ['bridge', '依頼'], ['skills', 'スキル帳'], ['rules', 'ルール']];
   const LATE = '返信がおそくなってしまい、すみません！\n';
+  const NOISE = { 'その他': 1, '関係なし': 1, 'なし': 1, '不明': 1 };
 
   const on = () => !!(D && D.features && (D.features.line_go === 'read' || D.features.line_go === 'send'));
   const canSend = () => !!(LG.D && LG.D.mode === 'send');
@@ -95,6 +96,7 @@
     h += LG.sub === 'bridge' ? viewBridge() : LG.sub === 'skills' ? viewSkills() : LG.sub === 'rules' ? viewRules() : viewTalk();
     h += '<div class="note lg-upd">LINE GO! の一覧の更新 ' + esc(LG.D.updated_at ? mdt(LG.D.updated_at) : '未取得') + '（Mac mini が1分おきに書き直します）</div>';
     v.innerHTML = h;
+    const c = document.getElementById('lgChat'); if (c) c.scrollTop = c.scrollHeight;
   }
 
   function viewTalk() {
@@ -120,10 +122,20 @@
     const steps = STEPS.map((n, i) => '<li class="' + (i < s ? 'done' : i === s ? 'cur' : '') + '"><span class="dot">' + (i < s ? '✓' : i + 1) + '</span>' + n + '</li>').join('');
     let h = '<div class="lg-conv-h"><div class="r1"><button type="button" class="lg-back" data-lg-back="1">← 一覧</button><h2>' + esc(name(t)) + '</h2>' +
       (t.stage ? '<span class="lg-chip ' + stCls(t.stage) + '">' + esc(t.stage) + '</span>' : '') + '</div><ol class="lg-steps" aria-label="この方の歩み">' + steps + '</ol></div>';
-    h += '<div class="lg-msg"><small>届いた連絡（要約）・' + esc(when(t.last_at)) + (t.count ? '・' + esc(t.count) + '通' : '') + '</small><p>' + esc(t.summary || '（要約なし）') + '</p>' +
-      (t.intent ? '<span class="lg-chip">' + esc(t.intent) + '</span>' : '') + (t.action ? '<span class="lg-chip">' + esc(t.action) + '</span>' : '') +
-      (t.stop_reason ? '<div class="note">止めた理由：' + esc(t.stop_reason) + '</div>' : '') +
-      '<a class="lg-utage" href="' + esc(t.talk_url) + '" target="_blank" rel="noopener noreferrer">UTAGE のトークで全文を見る</a></div>';
+    const ms = (LG.D.talks && LG.D.talks[t.fid]) || [];
+    const chip = v => v && !NOISE[v] ? '<span class="lg-chip">' + esc(v) + '</span>' : '';   // 「その他」「関係なし」は出さない（2026-11-28）
+    if (ms.length) {   // トークの中身（最新20通・2026-11-28 SHUHEY）
+      let day = '';
+      h += '<section class="lg-chat" aria-label="トーク"><div class="lg-chat-h"><b>トーク</b><span>最新' + ms.length + '通</span>' + chip(t.intent) + chip(t.action) + '</div><div class="lg-chat-b" id="lgChat">' +
+        ms.map(m => { const d = String(m.at).slice(0, 10), sep = d !== day ? '<div class="lg-day">' + esc(md(d)) + '</div>' : ''; day = d;
+          return sep + '<div class="lg-b ' + (m.dir === 'out' ? 'out' : 'in') + (m.kind !== 'text' ? ' k' : '') + '"><p>' + esc(m.text) + '</p><time>' + esc(hm(m.at)) + '</time></div>'; }).join('') +
+        '</div>' + (t.stop_reason ? '<div class="note">止めた理由：' + esc(t.stop_reason) + '</div>' : '') +
+        '<a class="lg-utage" href="' + esc(t.talk_url) + '" target="_blank" rel="noopener noreferrer">もっと前のやり取りは UTAGE のトークで</a></section>';
+    } else {
+      h += '<div class="lg-msg"><small>届いた連絡（要約）・' + esc(when(t.last_at)) + (t.count ? '・' + esc(t.count) + '通' : '') + '</small><p>' + esc(t.summary || '（要約なし）') + '</p>' +
+        chip(t.intent) + chip(t.action) + (t.stop_reason ? '<div class="note">止めた理由：' + esc(t.stop_reason) + '</div>' : '') +
+        '<a class="lg-utage" href="' + esc(t.talk_url) + '" target="_blank" rel="noopener noreferrer">UTAGE のトークで全文を見る</a></div>';
+    }
     h += viewDraft(t);
     if (canSend() && !t.sending && t.flag !== 'done') h += '<label class="lg-direct"><span class="hint">直接返信（自分のことばで。送った文もスキルの材料に）</span><textarea id="lgDirect" rows="2" maxlength="1000" placeholder="お名前は ◯◯ と書けば、送るときに入ります"></textarea><button type="button" class="go" data-lg-direct="' + esc(t.fid) + '">送る</button></label>';
     return h;
@@ -277,6 +289,7 @@
       T({ fid: 'Ufdemo08', applicant_id: 'demo08', last_at: at(0, 10, 0), count: '', summary: '面談のフォロー（3日後に連絡）', intent: 'フォロー', flag: 'ai', stage: 'ロードマップ面談', draft_id: 'fu:demo', draft_skill: '面談のあとのフォロー', draft_lv: '1', draft_next: '9',
         draft_text: '◯◯様\n先日は面談のお時間をいただき、ありがとうございました！\nその後、ご検討の中で気になっていることや、もう少し聞いてみたいことはありませんか？\nどんな小さなことでも、このLINEで気軽に送ってくださいね😊' }),
       T({ fid: 'Ufdemo99', last_at: at(0, 11, 30), summary: '12/3の14時か、12/4の夜はどうですか？', intent: '希望の日時', flag: 'human', stage: 'セミナー参加' }),
+      T({ fid: 'Ufdemo98', last_at: at(0, 9, 17), count: '2', summary: '海外在住なので、何か自分にできることがあるのでは？と思って…', intent: 'その他', action: '関係なし', flag: 'human', stage: '' }),
       T({ fid: 'Ufdemo07', applicant_id: 'demo07', last_at: at(0, 8, 2), summary: 'リンク届きました！ありがとうございます', intent: '届いたか確認', flag: 'auto', action: '自動で返した（Lv3）', stage: 'ロードマップ面談' }),
       T({ fid: 'Ufdemo12', applicant_id: 'demo12', last_at: at(0, 7, 40), summary: 'スタンプ', intent: 'スタンプ', flag: 'none', stage: 'ロードマップ面談' })
     ];
@@ -293,7 +306,14 @@
         { name: 'キャンセル・参加できない', lv: 2, next: 6, pct: 70, used: 5, fixed: 0, teachers: 1, need_ok: false }, { name: '面談のあとのフォロー', lv: 1, next: 9, pct: 10, used: 1, fixed: 0, teachers: 0 }],
       seeds: isAdmin() ? [{ name: '家族に相談したい', when: '「家族と相談します」と来たとき', sample: '◯◯様 もちろんです！ご家族に見ていただける資料もお送りしますね', count: 3, members: ['MIKA', 'RYO'] },
         { name: '支払いの不安', when: '「払えるか不安」と来たとき（借入れは勧めない）', sample: '◯◯様 不安なお気持ち、よく分かります。面談で一緒に考えましょう', count: 2, members: ['NAO'] }] : [],
-      taught: { this_week: 3, last_week: 1, handled: 14 }
+      taught: { this_week: 3, last_week: 1, handled: 14 },
+      talks: {
+        Ufdemo03: [['out', -1, 20, 0, 'ご予約ありがとうございます！明日20時からのロードマップ面談、Zoomでお待ちしています😊'], ['in', -1, 20, 12, 'よろしくお願いします！'], ['out', 0, 7, 30, '【本日20時】面談のご案内です。時間になったらこちらのリンクから入ってください'],
+          ['in', 0, 12, 40, '今夜のZoom、スマホからでも入れますか？'], ['in', 0, 12, 41, '［スタンプ］', 'sticker']].map(m => ({ dir: m[0], at: at(m[1], m[2], m[3]), text: m[4], kind: m[5] || 'text' })),
+        Ufdemo98: [['out', -2, 18, 0, '友だち追加ありがとうございます！無料セミナーのご案内です'], ['in', 0, 9, 15, 'はじめまして。いま海外に住んでいます'],
+          ['in', 0, 9, 17, '海外在住なので、何か自分にできることがあるのでは？と思って登録しました。日本の仕事もしてみたいです']].map(m => ({ dir: m[0], at: at(m[1], m[2], m[3]), text: m[4], kind: 'text' })),
+        Ufdemo10: [['in', 0, 9, 5, '分割だと月いくらになりますか？12回くらいを考えています']].map(m => ({ dir: m[0], at: at(m[1], m[2], m[3]), text: m[4], kind: 'text' }))
+      }
     };
   }
   function demoApi(action, body) {
