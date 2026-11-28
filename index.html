@@ -14,6 +14,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="img/SalesGO_favicon_64.png">
 <link rel="apple-touch-icon" sizes="180x180" href="img/SalesGO_apple-touch-icon_180.png">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="line-go.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
@@ -74,7 +75,7 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px calc(150px + env(saf
 
 /* ---- 下のタブ ---- */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--card); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
-.tabbar-in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.tabbar-in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
 .tab { position: relative; border: 0; background: none; border-radius: 12px; padding: 11px 0 10px; font-size: 14px; font-weight: 700; color: var(--sub); }
 .tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
 :root[data-theme="dark"] .tab[aria-selected="true"] .badge { background: #031147; color: #fdc805; }
@@ -408,6 +409,7 @@ details.rule .a li { margin: 3px 0; }
   <section id="v-report" hidden></section>
   <section id="v-num" hidden></section>
   <section id="v-docs" hidden></section>
+  <section id="v-line" hidden></section>
 </main>
 
 <button class="fab" id="fab" type="button" aria-label="営業Botを開く"><small>営業</small><b>Bot</b></button>
@@ -416,6 +418,7 @@ details.rule .a li { margin: 3px 0; }
   <div class="tabbar-in">
     <button class="tab" type="button" data-tab="today" aria-selected="true">今日<span class="badge" data-badge="today" hidden></span></button>
     <button class="tab" type="button" data-tab="meet" aria-selected="false">面談</button>
+    <button class="tab" type="button" data-tab="line" aria-selected="false" hidden>LINE<span class="badge" hidden></span></button>
     <button class="tab" type="button" data-tab="report" aria-selected="false">報告<span class="badge" data-badge="report" hidden></span></button>
     <button class="tab" type="button" data-tab="num" aria-selected="false">数字</button>
     <button class="tab" type="button" data-tab="docs" aria-selected="false">資料</button>
@@ -426,6 +429,7 @@ details.rule .a li { margin: 3px 0; }
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast" role="status"></div>
 
+<script src="line-go.js"></script>
 <script>
 'use strict';
 // 受け口（Apps Script のウェブアプリ）の URL。つなぎ込みのときに入れる（「受け口との約束」の文書）。空の間は見本（?demo=1）以外は「準備中」。
@@ -573,6 +577,7 @@ function render() {
   }
   $('#demoBar').hidden = !DEMO;
   renderToday(); renderMeet(); renderReport(); renderNum(); renderDocs();
+  if (window.LG) { LG.view(); LG.syncTab(); }   // LINE GO!（Sales GO!-007）
   const need = rowsVis().filter(r => r.report === 'needed').length;
   const today = rowsVis().filter(r => String(r.start).slice(0, 10) === D.today && r.past !== '1').length;
   setBadge('report', need); setBadge('today', today);
@@ -601,6 +606,7 @@ function renderToday() {
   let h = '<div class="hero"><h2>' + greet() + '、' + esc(name) + 'さん</h2><div class="d">' + esc(md(D.today)) + '</div>' +
     '<div class="nums"><div><small>今日の面談</small><b>' + tRows.length + '</b><span>件</span></div><div><small>明日の面談</small><b>' + mRows.length + '</b><span>件</span></div>' +
     '<div><small>報告がまだ</small><b>' + need.length + '</b><span>件</span></div></div></div>';
+  if (window.LG) h += LG.todayBand();   // LINEの返事まち・きょうの1件だけ・LINEからの依頼（Sales GO!-007）
   h += reassignHtml();   // 振り替えのお願い・判断待ち（2026-11-26）
   h += '<div class="sec-h"><h2>今日の面談</h2><span class="hint">押すと面談の操作へ</span></div>' +
     (tRows.length ? tRows.map(r => mini(r)).join('') : '<div class="empty">今日の面談はありません</div>');
@@ -767,12 +773,13 @@ function planPane(r) {
     (r.plan_url ? ' <a href="' + esc(r.plan_url) + '" target="_blank" rel="noopener noreferrer">Notion で開く</a>' : '') + '</div>';
 }
 function prepHtml(r) {
-  const id = r.applicant_id, st = hearingState(r), tab = PREP[id] || 'h';
+  const id = r.applicant_id, st = hearingState(r), tab = PREP[id] || 'h', lg = !!(window.LG && LG.hasPrep());   // 3つ目のタブ：LINEの3行（Sales GO!-007）
   const hl = { done: '提出済み', wait: '提出済み', yet: 'まだ', na: 'なし' }[st];
-  return '<div class="prep"><h3>面談の準備</h3><div class="ptabs">' +
+  return '<div class="prep"><h3>面談の準備</h3><div class="ptabs' + (lg ? ' three' : '') + '">' +
     '<button type="button" data-prep="h" class="' + (tab === 'h' ? 'on' : '') + '" aria-pressed="' + (tab === 'h') + '">📝 ヒアリング<small>（' + hl + '）</small></button>' +
-    '<button type="button" data-prep="p" class="' + (tab === 'p' ? 'on' : '') + '" aria-pressed="' + (tab === 'p') + '">🗒 作戦会議<small>（' + (r.plan ? 'あり' : 'なし') + '）</small></button></div>' +
-    '<div class="pbody">' + (tab === 'p' ? planPane(r) : hearingPane(r)) + '</div></div>';
+    '<button type="button" data-prep="p" class="' + (tab === 'p' ? 'on' : '') + '" aria-pressed="' + (tab === 'p') + '">🗒 作戦会議<small>（' + (r.plan ? 'あり' : 'なし') + '）</small></button>' +
+    (lg ? '<button type="button" data-prep="l" class="' + (tab === 'l' ? 'on' : '') + '" aria-pressed="' + (tab === 'l') + '">💬 LINE<small>（' + LG.prepLabel(r) + '）</small></button>' : '') + '</div>' +
+    '<div class="pbody">' + (tab === 'l' && lg ? LG.prepPane(r) : tab === 'p' ? planPane(r) : hearingPane(r)) + '</div></div>';
 }
 function tabiLocked(r) { return r.project === '旅キャリ' && !(D.features && D.features.op_tabi && r.can_operate === '1'); }
 function card(r) {
@@ -791,7 +798,8 @@ function card(r) {
   let h = '<div class="card' + (OPEN === id ? ' open' : '') + '" data-id="' + esc(id) + '"><div class="row"><div class="tp"><span class="nm">' + custName(r) + '</span>' +
     '<span class="when">' + esc(mdt(r.start)) + '</span></div><div class="sub">担当 ' + esc(r.member || '未確認') + '・' + esc(r.stage) + '</div><div class="badges">' + b + '</div>' + prepSummary(r) + '</div><div class="actions">' + prepHtml(r);   // 面談の準備をいちばん上に（2026-11-26 SHUHEY）
   const dis = busy ? ' disabled' : '';
-  if (r.talk_url) h += '<div class="act"><a class="go second" style="display:block;text-align:center;text-decoration:none" href="' + esc(r.talk_url) + '" target="_blank" rel="noopener noreferrer">💬 LINEトークを開く（1対1）</a></div>';   // 2026-11-26 SHUHEY
+  if (window.LG) h += LG.cardLink(r);   // LINE GO! が off のときは今までの「LINEトークを開く」（Sales GO!-007）
+  else if (r.talk_url) h += '<div class="act"><a class="go second" style="display:block;text-align:center;text-decoration:none" href="' + esc(r.talk_url) + '" target="_blank" rel="noopener noreferrer">💬 LINEトークを開く（1対1）</a></div>';   // 2026-11-26 SHUHEY
   if (r.project === '旅キャリ') {
     h += '<div class="note" style="margin:0 0 10px">' + (r.insta ? 'インスタ @' + esc(instaKey(r.insta)) + '・' : '') + 'アポ ' + esc(r.appointer || '不明') +
       (r.kind === 'tabi2' ? '<br>担当は一次面談の担当を出しています（変わっている場合があります）。' : '') + '</div>';
@@ -1283,6 +1291,7 @@ function renderNum() {
       (x.rep ? '<small>担当の報告：' + esc(x.rep) + (x.rep_at ? '（' + esc(mdShort(x.rep_at)) + '）' : '') + '</small>' : '') + '</td><td class="num">' +
       (x.pid ? '<button class="go second" type="button" data-st="' + i + '" style="padding:4px 10px;font-size:12.5px;min-height:0;width:auto">更新</button>' : '') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">まだありません</div>');
   $('#v-num').innerHTML = h;
+  if (window.LG) LG.afterNum();
 }
 // ---- 今の状況を更新（2026-11-25）：顧客マスターに担当者の報告を入れる。成約は速報（契約書と入金で正式な成約） ----
 const ST_OPTS = [['成約（報告）', '成約した（契約・入金の手続き中も含む）。速報として出し、契約書と入金が確認できたら正式な成約になります'],
@@ -1554,7 +1563,7 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.ad
 // ---- 画面の切り替え・読み込み ----
 function showTab(t) {
   TAB = t;
-  ['today', 'meet', 'report', 'num', 'docs'].forEach(k => { $('#v-' + k).hidden = k !== t; });
+  ['today', 'meet', 'report', 'num', 'docs', 'line'].forEach(k => { $('#v-' + k).hidden = k !== t; });
   $$('[data-tab]').forEach(b => { if (b.classList.contains('tab')) b.setAttribute('aria-selected', b.dataset.tab === t); });
   if (!DEMO) ls.set('tab', t);
   render(); window.scrollTo(0, 0);
@@ -1581,9 +1590,10 @@ async function load(quiet) {
     if (m.stage) m.stage = String(m.stage).replace('ヒアリング未', 'ヒアリング済');
   });
   D = j; render();
+  if (window.LG) LG.load();   // LINE GO! は別に読む。失敗しても Sales GO! は止めない（Sales GO!-007）
 }
 function gate(title, text, paste) {
-  ['today', 'meet', 'report', 'num', 'docs'].forEach(k => { $('#v-' + k).hidden = true; });
+  ['today', 'meet', 'report', 'num', 'docs', 'line'].forEach(k => { $('#v-' + k).hidden = true; });
   // paste＝専用リンクを貼り付ける欄（ホーム画面に追加したアプリは Safari と保存場所が別で、#k=… も落ちるため・2026-11-26）
   const box = paste ? '<div class="gate-paste"><label class="l" for="gateKey">会社から届いた専用リンクを、ここに貼り付けてください</label>' +
     '<input type="text" id="gateKey" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/sales-go/#k=…">' +
@@ -1607,6 +1617,7 @@ function gate(title, text, paste) {
 // ---- 操作の受け口（1か所でまとめて受ける） ----
 document.addEventListener('click', e => {
   const t = e.target;
+  if (window.LG && LG.click(e)) return;   // LINE GO! のボタン（Sales GO!-007）
   if (t.closest('[data-close]')) { closeSheet(); return; }
   const tb = t.closest('[data-tab]'); if (tb) { showTab(tb.dataset.tab); return; }
   if (t.closest('[data-rules]')) { goRules(); return; }
@@ -1726,7 +1737,7 @@ function demoData() {
     ok: true, now: stamp(now), today: ymd(now),
     user: { name: me, role: DEMO_ADMIN ? 'admin' : 'member', member: mine },
     members: DEMO_ADMIN ? ['MIKA', 'RYO', 'NAO', 'KEN'] : ['MIKA', 'RYO', 'NAO', 'KEN'],
-    features: { report_ad: 'on', report_tabi: 'on', op_tabi: DEMO_TABI, op_tabi2: DEMO_TABI, bot: 'on' },
+    features: { report_ad: 'on', report_tabi: 'on', op_tabi: DEMO_TABI, op_tabi2: DEMO_TABI, bot: 'on', line_go: 'send' },
     meta: { list_updated_at: at(0, now.getHours(), Math.floor(now.getMinutes() / 10) * 10), tabi_updated_at: '', stale: '' },
     meetings, busy: { KAZUKI: [at(1, 12, 0)], YUSUKE: [], HIROE: [at(1, 13, 0)], SAKI: [], YURIE: [at(1, 12, 0)], SHUHEY: [] }, priority: [['KAZUKI', 'YUSUKE', 'HIROE'], ['SAKI', 'YURIE'], ['SHUHEY']],
     todo: [{ level: 'warn', text: 'ヒアリングシートがまだです（今日 20:00・田中 けんたさん）', applicant_id: 'demo03' },
@@ -1775,6 +1786,7 @@ function demoApi(action, body) {
   if (!DEMO_D) DEMO_D = demoData();
   const reqId = () => 'demo-' + Math.random().toString(36).slice(2, 9);
   if (action === 'me') return Promise.resolve(JSON.parse(JSON.stringify(DEMO_D)));
+  if (/^line_/.test(action) && window.LG) return LG.demoApi(action, body) || Promise.resolve({ ok: false, error: 'action' });
   if (action === 'report') {
     const id = reqId(), r = DEMO_D.meetings.find(x => x.applicant_id === body.applicant_id);
     if (r) r.report = 'sending';
@@ -1788,6 +1800,7 @@ function demoApi(action, body) {
   if (action === 'request') {
     const q = DEMO_REQ[body.id]; if (!q) return Promise.resolve({ ok: false, error: 'state' });
     if (Date.now() - q.t < 2200) return Promise.resolve({ ok: true, request: { id: body.id, status: 'running' } });
+    if (q.kind === 'lg' && window.LG) return Promise.resolve(LG.demoRequest(q, body.id));
     if (q.kind === 'report') {
       const r = DEMO_D.meetings.find(x => x.applicant_id === q.aid);
       if (r) { r.report = 'done'; r.report_summary = q.p.result + (q.p.rank ? '・区分' + q.p.rank : ''); }
@@ -1819,7 +1832,7 @@ if (!DEMO && !KEY) gate('専用URLで開いてください', '会社から届い
 else if (!DEMO && !API) gate('準備中です', 'セールスGOはいま準備中です。使えるようになったら、会社からお知らせします。');
 else {
   const first = DEMO ? (params.get('tab') || 'today') : ls.get('tab', 'today');
-  TAB = ['today', 'meet', 'report', 'num', 'docs'].includes(first) ? first : 'today';
+  TAB = ['today', 'meet', 'report', 'num', 'docs', 'line'].includes(first) ? first : 'today';
   load().then(() => {
     if (!D) return;
     showTab(TAB);
