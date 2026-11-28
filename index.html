@@ -703,10 +703,12 @@ function planSecs(t) {   // 「## 見出し」で区切る（作戦会議は ## 
   return out;
 }
 function planLead(r) { const s = planSecs(r.plan)[0]; return s ? s.body.map(x => x.trim()).filter(Boolean).join(' ').replace(/\*\*/g, '') : ''; }
-function hearingState(r) {
+function hearingState(r) {   // 札（r.stage）・期限（r.hearing_kind）・面談の準備を同じ答えにする（2026-11-28 Sales GO!-006）
   if (r.hearing) return 'done';
-  if (r.project === '旅キャリ' || r.kind === 'external' || r.kind === 'tabi1' || r.kind === 'tabi2') return 'na';
-  return r.hearing_kind === 'submitted' ? 'wait' : 'yet';
+  if (r.project === '旅キャリ' || r.kind === 'tabi1' || r.kind === 'tabi2') return 'na';
+  const said = r.hearing_kind === 'submitted' || /ヒアリング済/.test(r.stage || '');
+  if (r.kind === 'external') return said ? 'wait' : 'na';
+  return said ? 'wait' : 'yet';
 }
 function hearingVal(r, k) { const g = ((r.hearing || {}).glance || []).find(x => x.k === k); return g ? g.v : ''; }
 function prepSummary(r) {   // 閉じたカードの1〜2行：📝 働き方・一番の悩み／🗒 作戦会議のひとことで
@@ -722,7 +724,7 @@ function prepSummary(r) {   // 閉じたカードの1〜2行：📝 働き方・
 function hearingPane(r) {
   const st = hearingState(r), x = r.hearing;
   if (st === 'na') return '<div class="note" style="margin:0">' + (r.kind === 'external' ? 'UTAGEに無い予約（パネルで登録）には、ヒアリングシートの中身は出ません。' : '旅キャリの面談には、ヒアリングシートはありません。') + '</div>';
-  if (st === 'wait') return '<div class="box info">提出済みです。中身はまもなくここに出ます（10分ほど）。</div>';
+  if (st === 'wait') return '<div class="box info">提出済みです。' + (r.kind === 'external' ? '中身はUTAGEのヒアリング回答で見てください（パネルで登録した予約は、まだここに出せないことがあります）。' : '中身はまもなくここに出ます（10分ほど）。') + '</div>';
   if (st === 'yet') {
     const k = r.hearing_kind, left = r.hearing_until ? leftText(r.hearing_until) : '';
     const due = (k === 'first' || k === 'final') && r.hearing_until ? '期限 ' + mdt(r.hearing_until) + (left ? '・' + left : '') + (k === 'final' ? '（延長済み・最終）' : '') : k === 'none' ? '直前の予約のため期限はありません' : '';
@@ -1555,6 +1557,13 @@ async function load(quiet) {
   }
   // 手動で日程変更した面談は、新しい日時で並べる（UTAGEの予約は旧日時のまま残るため・2026-11-26 大塚さんの件）
   (j.meetings || []).forEach(m => { if (m.manual_new_start) { m.utage_start = m.start; m.start = m.manual_new_start; } });
+  // ヒアリングの判定元を1つに（2026-11-28 Sales GO!-006）：シートに回答があれば「提出済み」。ラベルの読み直し（最大12時間・夜は止まる）より
+  // 先に回答が届いても、札・期限・自動督促の見込み・面談の準備が食い違わないようにする
+  (j.meetings || []).forEach(m => {
+    if (!m.hearing) return;
+    m.hearing_kind = 'submitted'; m.hearing_until = ''; m.hearing_auto_last = ''; m.hearing_auto_next = '';
+    if (m.stage) m.stage = String(m.stage).replace('ヒアリング未', 'ヒアリング済');
+  });
   D = j; render();
 }
 function gate(title, text, paste) {
