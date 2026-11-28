@@ -429,8 +429,8 @@ details.rule .a li { margin: 3px 0; }
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast" role="status"></div>
 
-<!-- 不具合・要望を送る（go-bug.js・GO!シリーズ全体-003）：右下の Bot の中に1行。受け口のURLが空のあいだは見本（送らない） -->
-<script>window.GO_BUG = {app: "Sales GO!", endpoint: "", fab: false, screens: ["今日","面談","LINE","報告","数字","資料", "ログイン・ひらけない"], beforeOpen: () => { try { closeSheet(); } catch (e) {} }};</script>
+<!-- 不具合・要望を送る（go-bug.js・GO!シリーズ全体-003）：右下の Bot の中に1行。受け口（GO!不具合の受け口・版1）→ 台帳＋Chatwork 454273028 -->
+<script>window.GO_BUG = {app: "Sales GO!", endpoint: "https://script.google.com/macros/s/AKfycbwphBCEwJefng41Ptz8Xf45S4oKiHKMnH0ji-2kUpqeddO3uapADVSIkrrLHB2EIo0/exec", fab: false, screens: ["今日","面談","LINE","報告","数字","資料", "ログイン・ひらけない"], beforeOpen: () => { try { closeSheet(); } catch (e) {} }};</script>
 <script src="go-bug.js"></script>
 <script src="line-go.js"></script>
 <script>
