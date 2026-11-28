@@ -69,6 +69,11 @@ header.top { position: sticky; top: 0; z-index: 20; background: linear-gradient(
 .meta { color: var(--hero-muted); font-size: 12px; margin-top: 4px; }
 .who { margin-top: 10px; font-size: 12px; font-weight: 700; }   /* 説明書きを外したので、黄色い枠も外してボタンだけ（Sales GO!-011） */
 .who .chips button.on { background: #fdc805; color: #031147; border-color: #fdc805; }   /* 紺の帯の上でも選んだボタンが見えるように（ライト・ダーク共通） */
+/* 管理者は上の黄色い札がそのまま「だれの画面か」のプルダウンになる（2026-11-28 SHUHEY・Sales GO!-011）。紺の帯の上なのでライト・ダーク共通の色 */
+.view-sel { margin-left: auto; min-width: 0; position: relative; display: inline-flex; align-items: center; }
+.view-sel .vs-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.view-sel select { appearance: none; -webkit-appearance: none; max-width: 210px; min-height: 36px; font: inherit; font-size: 13px; font-weight: 700; color: #031147; background: #fdc805 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23031147' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center; border: 0; border-radius: 999px; padding: 6px 32px 6px 14px; cursor: pointer; text-overflow: ellipsis; }
+.view-sel select:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .demo-bar { margin-top: 8px; font-size: 12px; border-radius: 8px; padding: 5px 10px; background: rgba(255,255,255,.12); color: #fff; }
 .demo-bar b { color: var(--yellow); }
 
@@ -405,6 +410,7 @@ details.rule .a li { margin: 3px 0; }
     <div class="brand-row">
       <span class="brand"><img src="img/SalesGO_logo_white.svg" width="121" height="26" alt="Sales GO!"></span>
       <span class="me-pill" id="mePill" hidden></span>
+      <label class="view-sel" id="viewWrap" hidden><span class="vs-l">だれの画面</span><select id="viewSel" aria-label="だれの画面を見るか"></select></label>
       <button class="reload" id="reload" type="button">更新</button>
     </div>
     <div class="meta" id="meta">読み込み中…</div>
@@ -576,18 +582,21 @@ function meetingById(id) { return rowsAll().find(r => r.applicant_id === id); }
 function render() {
   if (!D) return;
   const u = D.user || {};
-  $('#mePill').hidden = false; $('#mePill').textContent = (u.name || '') + (DEMO ? '（見本）' : '') + (isAdmin() ? '・管理者' : '');
+  $('#mePill').hidden = isAdmin(); $('#mePill').textContent = (u.name || '') + (DEMO ? '（見本）' : '') + (isAdmin() ? '・管理者' : '');
   const m = D.meta || {};
   let t = '一覧の更新 ' + (m.list_updated_at ? mdt(m.list_updated_at) : '未取得');
   if (m.tabi_updated_at && m.tabi_updated_at !== m.list_updated_at) t += '／旅キャリ ' + mdt(m.tabi_updated_at);
   if (m.stale) t += '／' + m.stale;
   $('#meta').textContent = t;
   $('#meta').hidden = true;   // 上部の「一覧の更新…」の行も出さない（2026-11-28 SHUHEY・Sales GO!-011）。中身は残すので、戻すときはこの行を消す
-  $('#who').hidden = !isAdmin();
   if (isAdmin()) {   // 担当者を選ぶと、その人が見ている画面に切り替わる（2026-11-25 SHUHEY）
     // 上の説明書きは外して、切り替えのボタンだけにする（2026-11-28 SHUHEY「上部のテキストが多すぎて見にくい」・Sales GO!-011）
-    $('#who').innerHTML = '<div class="chips">' + ['', ...(D.members || [])].map(k => '<button type="button" data-fm="' + esc(k) + '" class="' + (FM === k ? 'on' : '') + '">' + (k ? esc(k) + 'の画面' : '管理者（全員）') + '</button>').join('') + '</div>';
+    // 並んだボタンはやめて、上の黄色い札のプルダウンで選ぶ（2026-11-28 SHUHEY「プルダウンみたいな感じでも」）
+    $('#viewSel').innerHTML = ['', ...(D.members || [])].map(k => '<option value="' + esc(k) + '"' + (FM === k ? ' selected' : '') + '>' +
+      (k ? esc(k) + 'の画面' : '管理者（全員）') + '</option>').join('');
   }
+  $('#viewWrap').hidden = !isAdmin();
+  $('#who').hidden = true;
   $('#demoBar').hidden = !DEMO;
   renderToday(); renderMeet(); renderReport(); renderNum(); renderDocs();
   if (window.LG) { LG.view(); LG.syncTab(); }   // LINE GO!（Sales GO!-007）
@@ -1686,6 +1695,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.id === 'viewSel') { FM = t.value; NUM_ALL = !FM; render(); load(); return; }   // 管理者：だれの画面を見るか（Sales GO!-011）
   if (t.dataset.mb != null) MB[t.dataset.mb] = t.value;
   if (t.dataset.chk != null) CHK[t.dataset.chk] = t.checked;   // 次の面談の進め方のチェック（画面の中だけ・保存しない）
   if (t.dataset.f && REP) { REP.f[t.dataset.f] = t.value; saveDraft(); recheck(); }
