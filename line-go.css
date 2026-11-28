@@ -257,3 +257,4 @@ body.lg-wide .lg-draft textarea{min-height:160px}
   .lg-sit.edit { grid-column: 1 / -1; }
 }
 .lg-txt summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--head); padding: 4px 0; }
+.lg-close.auto { border-color: var(--lg-green); box-shadow: none; background: var(--lg-greenbg); }

@@ -15,7 +15,7 @@
   // 作戦：止まった状況（LINE GO!-005・2026-11-28 SHUHEY「期限つきのメッセージを送ってないから、ずっと残る。状況ごとに作戦を打ち込んで、次は自動で」）
   // 見分け方は Mac mini（sgo_line_go.py の situation_of）と同じ。受け口からは tactics（作戦）と bridges の kind=stalled／close が来る
   const SITS = [['noshow_nohearing', '面談の時間を過ぎた・ヒアリングも未'], ['noshow', '面談の時間を過ぎた・参加したか分からない'], ['hearing_late', '面談が24時間以内なのに、ヒアリングが未']];
-  const CLOSE = { cancel: 'キャンセルにするか聞く', hand: '担当に任せる', none: 'なにもしない（待つ）' };
+  const CLOSE = { cancel: '自動でキャンセルにする', hand: '担当に任せる', none: 'なにもしない（待つ）' };
   const WD = '日月火水木金土';
   const LATE = '返信がおそくなってしまい、すみません！\n';
   const NOISE = { 'その他': 1, '関係なし': 1, 'なし': 1, '不明': 1 };
@@ -62,7 +62,7 @@
   // ---- 今日タブ：返事まちの帯・きょうの1件だけ・LINEからの依頼 ----
   function todayBand() {
     if (!on() || !LG.D) return '';
-    const w = waiting(), br = plainBr(), tk = LG.D.taught, sl = stalls(), cl = sl.filter(b => b.kind === 'close').length;
+    const w = waiting(), br = plainBr(), tk = LG.D.taught, sl = stalls().filter(b => !/^auto/.test(b.detail)), cl = sl.filter(b => b.kind === 'close').length;
     const one = w.find(t => t.flag === 'ai');
     let h = '<button type="button" class="lg-band" data-lg-go="wait"><span class="lg-band-h"><span>💬 LINEの返事まち</span><b>' + w.length + '<small>件</small></b></span>' +
       '<span class="lg-band-s">' + (w.length ? '見る →' : 'ゼロです！🎉 いい感じ') + '</span></button>';
@@ -217,9 +217,11 @@
   function viewStall() {
     const S = stalls(), cl = S.filter(b => b.kind === 'close');
     let h = '<div class="sec-h"><h2>止まったお客様</h2><span class="hint">期限をつけて「待つ」を終わらせる</span></div>' +
-      '<div class="lg-why">期限のない連絡だと、お客様も急がず、こちらも締め切れずに<b>ずっと残ります</b>。状況ごとに作戦を1回打ち込めば、次から同じ状況の方に<b>期限つきの案</b>が出ます。期限が来て返事がなければ「締め切りますか」をお知らせします。</div>';
-    if (cl.length) h += '<div class="sec-h"><h2>⏰ 期限が来た <span class="lg-cnt">' + cl.length + '</span></h2><span class="hint">作戦どおり締めて、手放す</span></div>' + cl.map(b => {
+      '<div class="lg-why">期限のない連絡だと、お客様も急がず、こちらも締め切れずに<b>ずっと残ります</b>。状況ごとに作戦を1回打ち込めば、次から同じ状況の方に<b>期限つきの案</b>が出ます。期限が来て返事がなければ、作戦どおり<b>自動でキャンセル</b>にします。</div>';
+    if (cl.length) h += '<div class="sec-h"><h2>⏰ 期限が来た <span class="lg-cnt">' + cl.length + '</span></h2><span class="hint">返事がなければ、作戦どおり自動で締めます</span></div>' + cl.map(b => {
       const m = b.applicant_id ? meetingById(b.applicant_id) : null;
+      if (/^auto/.test(b.detail)) return '<div class="lg-br lg-close auto"><div class="r1"><span class="ic">' + (b.detail === 'auto' ? '✅' : '⏳') + '</span><b>' + esc(whoName(b.applicant_id)) + '</b>' + (isAdmin() && b.member ? '<span class="lg-chip">担当 ' + esc(b.member) + '</span>' : '') + '</div><div>' + esc(b.title) + '</div>' +
+        '<div class="note">作戦どおり、お客様には何も送らずに UTAGE の予約をキャンセルにしました（Sales GO! のキャンセルと同じ流れ）。もう一度受けたいと連絡が来たら、ふつうに予約を取り直せます</div></div>';
       const act = b.detail === 'cancel' && m ? '<button type="button" class="go undo" data-lg-cancel="' + esc(b.applicant_id) + '">この面談をキャンセルにする</button><div class="note">お客様への連絡は作戦の文で済んでいます。押すと Sales GO! のキャンセルと同じ流れです</div>'
         : '<div class="note">作戦は「担当に任せる」です。UTAGE のトークで最後のひと声をかけるか、面談カードで結果を決めてください</div>' + (m ? '<button type="button" class="go second" data-go-meet="' + esc(b.applicant_id) + '">面談カードを開く</button>' : '');
       return '<div class="lg-br lg-close"><div class="r1"><span class="ic">⏰</span><b>' + esc(whoName(b.applicant_id)) + '</b>' + (isAdmin() && b.member ? '<span class="lg-chip">担当 ' + esc(b.member) + '</span>' : '') + '</div><div>' + esc(b.title) + '</div>' + act + '</div>';
@@ -448,7 +450,7 @@
         { id: 'bk:demo', kind: 'booking', applicant_id: '', fid: 'Ufdemo99', member: me, title: '希望の日時が届きました', detail: '12/3の14時か、12/4の夜はどうですか？', due_at: at(0, 11, 30), status: 'open' },
         { id: 'cx:demo', kind: 'cancel', applicant_id: 'demo11', fid: 'Ufdemo11', member: me, title: '見送りの連絡がありました。この面談をキャンセルにしますか', detail: '今回はローンが通らず見送ります', due_at: at(0, 10, 20), status: 'open' },
         { id: 'st:tc:noshow_nohearing:demo01:x', kind: 'stalled', applicant_id: 'demo01', fid: 'Ufdemo01', member: me, title: '面談の時間を過ぎた・ヒアリングも未', detail: 'draft', due_at: at(2, 21), draft_id: 'tc:noshow_nohearing:demo01:x', status: 'open' },
-        { id: 'cl:tc:noshow:demo12:x', kind: 'close', applicant_id: 'demo12', fid: 'Ufdemo12', member: me, title: '期限（' + (() => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 21); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）21時'; })() + '）が過ぎました。作戦どおり締め切りますか', detail: 'cancel', due_at: at(-1, 21), status: 'open' },
+        { id: 'cl:tc:noshow:demo12:x', kind: 'close', applicant_id: 'demo12', fid: 'Ufdemo12', member: me, title: '期限（' + (() => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 21); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）21時'; })() + '）までに返事が無かったので、自動でキャンセルにしました', detail: 'auto', due_at: at(-1, 21), status: 'open' },
         ...(isAdmin() ? [{ id: 'st:tc:noshow:demo21:x', kind: 'stalled', applicant_id: 'demo21', fid: 'Ufdemo21', member: 'RYO', title: '面談の時間を過ぎた・参加したか分からない', detail: 'wait', due_at: at(1, 21), status: 'open' }] : []),
         { id: 'fu:demo', kind: 'followup', applicant_id: 'demo08', fid: 'Ufdemo08', member: me, title: '面談のフォローの日です', detail: '3日後に連絡', due_at: at(0, 10, 0), draft_id: 'fu:demo', status: 'open' }],
       summaries: { demo03: { worry: '分割の回数と、毎月の支払い', temp: '前向き。家族に相談中', promise: '料金表を送る', msg_at: at(0, 12, 41) },
